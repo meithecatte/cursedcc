@@ -79,3 +79,8 @@ show_range() {
     local -i len=end-begin+1
     show_line "$filename" $lineno $((begin - linebegin)) $len "$line" "$comment"
 }
+
+end_diagnostic() {
+    echo
+    diagnostic_color=
+}

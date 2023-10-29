@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
 
-shopt -s extglob
-
-filename="write_a_c_compiler/stage_1/valid/return_2.c"
+declare filename="$1"
 
 # XXX: this approach to reading a file causes a fork(), but all the alternatives
 # I've seen so far (read and mapfile) read the file one byte at a time, which is
 # worse.
-src="$(< "$filename")"
+declare src="$(< "$filename")"
 
 . diagnostics.sh
 
@@ -63,7 +61,10 @@ lex() {
             "{") token lbrace $begin $i;;
             "}") token rbrace $begin $i;;
             ";") token semi $begin $i;;
-            *) echo "$c unknown";;
+            *)
+                error "stray '$c' in program"
+                show_range $i $i
+                end_diagnostic;;
         esac
     done
 }
