@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+shopt -s extglob
+
 filename="write_a_c_compiler/stage_1/valid/return_2.c"
 
 # XXX: this approach to reading a file causes a fork(), but all the alternatives
@@ -7,10 +9,7 @@ filename="write_a_c_compiler/stage_1/valid/return_2.c"
 # worse.
 src="$(< "$filename")"
 
-function fail() {
-    echo "$@" >&2
-    exit 1
-}
+. diagnostics.sh
 
 # Tokens are stored in a SoA representation.
 declare -a toktype # type of token, e.g. ident, lbrace
@@ -18,7 +17,7 @@ declare -a tokdata # associated data, e.g. the actual identifier or literal valu
 declare -ia tokbegin tokend # input byte range that corresponds to this token
 
 # token type begin end data
-function token() {
+token() {
     local -i idx=${#toktype[@]}
     toktype[idx]="$1"
     tokbegin[idx]="$2"
@@ -28,11 +27,11 @@ function token() {
     fi
 }
 
-function lex() {
-    declare -i i
+lex() {
+    local -i i
     for (( i=0; i < ${#src}; i++ )); do
-        declare c="${src:i:1}"
-        declare -i begin=i
+        local c="${src:i:1}"
+        local -i begin=i
         case "$c" in
             ' ' | $'\n' | $'\t' | $'\r');;
             [_a-zA-Z])
@@ -41,7 +40,17 @@ function lex() {
                     ((i=i+1))
                     ident+="${src:i:1}"
                 done
-                token ident $begin $i "$ident";;
+                case "$ident" in
+                    alignof|auto|break|case|char|const|continue|default|do|\
+                    double|else|enum|extern|float|for|goto|if|inline|int|\
+                    long|register|restrict|return|short|signed|sizeof|static|\
+                    struct|switch|typedef|union|unsigned|void|volatile|while|\
+                    _Alignas|_Atomic|_Bool|_Complex|_Generic|_Imaginary|\
+                    _Noreturn|_Static_assert|_Thread_local)
+                        token "kw:$ident" $begin $i "$ident";;
+                    *)
+                        token ident $begin $i "$ident";;
+                esac;;
             [0-9])
                 local num="$c"
                 while [[ "${src:i+1:1}" =~ [0-9] ]]; do
@@ -59,4 +68,12 @@ function lex() {
     done
 }
 
+show_tokens() {
+    local -i i
+    for (( i=0; i < ${#toktype[@]}; i++ )); do
+        show_range ${tokbegin[i]} ${tokend[i]} "${toktype[i]} ${tokdata[i]}"
+    done
+}
+
 lex
+show_tokens
