@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 set -eu
 
-. binpack.sh
-. diagnostics.sh
-. parse.sh
-. elf.sh
+SELFDIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
-if [ ! -f "$1" ]; then
+. "$SELFDIR/binpack.sh"
+. "$SELFDIR/diagnostics.sh"
+. "$SELFDIR/parse.sh"
+. "$SELFDIR/elf.sh"
+
+if [ -z "${1-}" ]; then
     fail "Usage: $0 file"
 fi
 
@@ -27,5 +29,8 @@ declare -p ast
 sections[.text]="\xc3"
 section_types[.text]="$SHT_PROGBITS"
 section_attrs[.text]=$(($SHF_ALLOC | $SHF_EXECINSTR))
+
+symbol_sections[main]=.text
+symbol_offsets[main]=0
 
 emit_elf out.o

@@ -121,3 +121,5 @@ emit_elf() {
 declare -A sections
 declare -A section_types
 declare -A section_attrs
+declare -A symbol_sections
+declare -A symbol_offsets
