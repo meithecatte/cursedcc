@@ -57,6 +57,7 @@ if (( objonly == 1 )); then
     fi
 else
     objfile="$(mktemp ccsh.XXXXXXXXXX.o)"
+    # shellcheck disable=SC2064 # we *do* want it to expand now.
     trap "rm -- '$objfile'" EXIT
 fi
 
