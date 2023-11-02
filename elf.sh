@@ -46,10 +46,27 @@ build_stringtable() {
     section_types[$section]="$SHT_STRTAB"
 }
 
-declare -Ai shstrtab_positions
+build_symtab() {
+    local -Ai strtab_positions
+    build_stringtable .strtab strtab_positions "${!symbol_sections[@]}"
+    # XXX: this struct differs between 32- and 64-bit ELFs. Let's do only 64-bit
+    # for now.
+    local symtab=""
 
-build_shstrtab() {
-    build_stringtable .shstrtab shstrtab_positions "${!sections[@]}" .shstrtab
+    for symbol in "${!symbol_sections[@]}"; do
+        local section="${symbol_sections[$symbol]}"
+        local offset="${symbol_offsets[$symbol]}"
+        p32 symtab "${strtab_positions[$symbol]}"
+        # global binding, no type specified
+        symtab+="\x10" # st_info
+        symtab+="\x00" # st_other
+        p16 symtab "${section_index[$section]}"
+        p64 symtab "$offset"
+        p64 symtab 0 # st_size
+    done
+
+    sections[.symtab]="$symtab"
+    section_types[.symtab]="$SHT_SYMTAB"
 }
 
 declare -Ai section_index
@@ -58,20 +75,30 @@ declare -Ai section_index
 emit_elf() {
     local filename="$1"
 
-    local -i position=$ehsize
+    local -a section_order=("${!sections[@]}" .shstrtab .strtab .symtab)
 
+    local -i section_count=1
+    for section in "${section_order[@]}"; do
+        section_index["$section"]=$section_count
+        section_count+=1
+    done
+
+    build_symtab
+
+    local -Ai shstrtab_positions
+    build_stringtable .shstrtab shstrtab_positions "${!sections[@]}" .shstrtab
+
+    local -i position=$ehsize
     local section_data=""
 
     # first section header needs to be NULL, apparently
-    local -i section_count=1
     local section_headers=""
     local -i i
     for (( i=0; i < shentsize; i++)); do
         section_headers+="\x00"
     done
 
-    build_shstrtab
-    for section_name in "${!sections[@]}"; do
+    for section_name in "${section_order[@]}"; do
         local section="${sections[$section_name]}"
         local section_size
         binlength section_size "$section"
@@ -81,14 +108,18 @@ emit_elf() {
         psz section_headers 0 # sh_addr
         psz section_headers $position # sh_offset
         psz section_headers $section_size # sh_size
-        p32 section_headers 0 # sh_link
+
+        local entsize=0 link=0
+        if (( section_types["$section_name"] == SHT_SYMTAB )); then
+            entsize=24
+            link=${section_index[.strtab]}
+        fi
+        p32 section_headers $link # sh_link
         p32 section_headers 0 # sh_info
         psz section_headers 0 # sh_addralign
-        psz section_headers 0 # sh_entsize
+        psz section_headers $entsize # sh_entsize
         section_data+="$section"
         position+=$section_size
-        section_index[$section_name]=$section_count
-        section_count+=1
     done
 
     exec {fd}>"$filename"
