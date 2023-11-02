@@ -26,6 +26,24 @@ lex() {
             done
 
             continue
+        elif [[ "${src:i:2}" == "/*" ]]; then
+            local -i comment_begin=i
+            i+=2
+
+            while (( i < ${#src} )) && [[ "${src:i:2}" != "*/" ]]; do
+                i+=1
+            done
+
+            if (( i >= ${#src} )); then
+                error "unclosed block comment"
+                show_range $comment_begin $((comment_begin + 1)) \
+                    "comment begins here"
+                end_diagnostic
+                continue
+            else
+                i+=2
+                continue
+            fi
         fi
 
         local c="${src:i:1}"
