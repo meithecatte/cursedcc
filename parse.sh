@@ -78,6 +78,7 @@ show_tokens() {
 
 declare -i pos=0
 declare -a ast=()
+declare -Ai functions
 
 # mknode out node
 mknode() {
@@ -139,7 +140,7 @@ parse_function() {
 
     local body
     parse_compound body
-    echo "function $name has body $body"
+    functions[$name]=$body
 }
 
 # parse_compound out

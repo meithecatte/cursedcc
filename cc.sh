@@ -7,6 +7,7 @@ SELFDIR="$(dirname -- "${BASH_SOURCE[0]}")"
 . "$SELFDIR/diagnostics.sh"
 . "$SELFDIR/parse.sh"
 . "$SELFDIR/elf.sh"
+. "$SELFDIR/backend.sh"
 
 declare objonly=0
 
@@ -40,14 +41,16 @@ if (( error_count > 0 )); then
     exit 1
 fi
 
+declare -p functions
 declare -p ast
 
 sections[.text]="\x31\xc0\xc3"
 section_types[.text]="$SHT_PROGBITS"
 section_attrs[.text]=$((SHF_ALLOC | SHF_EXECINSTR))
 
-symbol_sections[main]=.text
-symbol_offsets[main]=0
+for function in "${!functions[@]}"; do
+    emit_function "$function"
+done
 
 if (( objonly == 1 )); then
     if [ -z "${outfile-}" ]; then
@@ -64,5 +67,9 @@ fi
 emit_elf "$objfile"
 
 if (( objonly == 0 )); then
-    gcc -o "${outfile-a.out}" "$objfile"
+    if [ -z "${outfile-}" ]; then
+        outfile="${filename%.c}"
+    fi
+
+    cc -o "${outfile}" "$objfile"
 fi
