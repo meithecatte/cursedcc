@@ -50,30 +50,34 @@ lex() {
         local -i begin=i
         case "$c" in
             ' ' | $'\n' | $'\t' | $'\r');;
-            [_a-zA-Z])
+            [_a-zA-Z0-9])
                 local ident="$c"
                 while [[ "${src:i+1:1}" =~ [_A-Za-z0-9] ]]; do
                     ((i=i+1))
                     ident+="${src:i:1}"
                 done
-                case "$ident" in
-                    alignof|auto|break|case|char|const|continue|default|do|\
-                    double|else|enum|extern|float|for|goto|if|inline|int|\
-                    long|register|restrict|return|short|signed|sizeof|static|\
-                    struct|switch|typedef|union|unsigned|void|volatile|while|\
-                    _Alignas|_Atomic|_Bool|_Complex|_Generic|_Imaginary|\
-                    _Noreturn|_Static_assert|_Thread_local)
-                        token "kw:$ident" $begin $i "$ident";;
-                    *)
-                        token ident $begin $i "$ident";;
-                esac;;
-            [0-9])
-                local num="$c"
-                while [[ "${src:i+1:1}" =~ [0-9] ]]; do
-                    ((i=i+1))
-                    num+="${src:i:1}"
-                done
-                token literal $begin $i "$num";;
+
+                if [[ "${ident:0:1}" =~ [0-9] ]]; then
+                    if [ -n "${ident//[0-9]/}" ]; then
+                        error "invalid identifier"
+                        show_range $begin $i "identifier can't start with a digit"
+                        end_diagnostic
+                    else
+                        token literal $begin $i "$ident"
+                    fi
+                else
+                    case "$ident" in
+                        alignof|auto|break|case|char|const|continue|default|do|\
+                        double|else|enum|extern|float|for|goto|if|inline|int|\
+                        long|register|restrict|return|short|signed|sizeof|static|\
+                        struct|switch|typedef|union|unsigned|void|volatile|while|\
+                        _Alignas|_Atomic|_Bool|_Complex|_Generic|_Imaginary|\
+                        _Noreturn|_Static_assert|_Thread_local)
+                            token "kw:$ident" $begin $i "$ident";;
+                        *)
+                            token ident $begin $i "$ident";;
+                    esac
+                fi;;
             "(") token lparen $begin $i;;
             ")") token rparen $begin $i;;
             "{") token lbrace $begin $i;;
