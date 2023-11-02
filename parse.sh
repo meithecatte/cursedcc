@@ -205,7 +205,13 @@ recover_semi() {
 
 # parse_statement out
 parse_statement() {
-    has_tokens || return 1
+    if ! has_tokens; then
+        error "expected statement, got EOF"
+        show_eof
+        end_diagnostic
+        return 1
+    fi
+
     case "${toktype[pos]}" in
     kw:return)
         pos+=1
@@ -227,7 +233,14 @@ parse_statement() {
 # parse_expr out
 parse_expr() {
     local -n out="$1"
-    has_tokens || return 1
+
+    if ! has_tokens; then
+        error "expected expression, got EOF"
+        show_eof
+        end_diagnostic
+        return 1
+    fi
+
     case "${toktype[pos]}" in
     literal)
         expect literal n

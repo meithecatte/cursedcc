@@ -18,13 +18,13 @@ declare diagnostic_color
 warning() {
     warning_count+=1
     diagnostic_color="${YELLOW_BOLD}"
-    echo "${YELLOW_BOLD}warning${FG_DEFAULT}: $@${RESET}"
+    echo "${YELLOW_BOLD}warning${FG_DEFAULT}: $@${RESET}" >&2
 }
 
 error() {
     error_count+=1
     diagnostic_color="${RED_BOLD}"
-    echo "${RED_BOLD}error${FG_DEFAULT}: $@${RESET}"
+    echo "${RED_BOLD}error${FG_DEFAULT}: $@${RESET}" >&2
 }
 
 # show_line filename lineno begin len line comment
@@ -37,18 +37,18 @@ show_line() {
     local -i width=${#lineno}+3
     printf "${BLUE_BOLD}%*s ${RESET}%s:%d:%d\n" \
         $width "-->" "$filename" \
-        $lineno $((begin + 1))
-    printf "${BLUE_BOLD}%*s\n" $width " | "
-    printf "%d | ${RESET}%s\n" $lineno "$line"
-    printf "${BLUE_BOLD}%*s${diagnostic_color}%*s" $width " | " $begin ""
+        $lineno $((begin + 1)) >&2
+    printf "${BLUE_BOLD}%*s\n" $width " | " >&2
+    printf "%d | ${RESET}%s\n" $lineno "$line" >&2
+    printf "${BLUE_BOLD}%*s${diagnostic_color}%*s" $width " | " $begin "" >&2
 
     local -i i
     local underline=""
     for (( i=0; i < len; i++ )); do
         underline+="^"
     done
-    echo "$underline $comment"
-    printf "${BLUE_BOLD}%*s${RESET}\n" $width " | "
+    echo "$underline $comment" >&2
+    printf "${BLUE_BOLD}%*s${RESET}\n" $width " | " >&2
 }
 
 # show_range begin end comment
@@ -94,6 +94,6 @@ show_eof() {
 }
 
 end_diagnostic() {
-    echo
+    echo >&2
     diagnostic_color=
 }
