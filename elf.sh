@@ -29,20 +29,27 @@ psz() {
     p64 "$@"
 }
 
+# build_stringtable section_name out_array entries...
+build_stringtable() {
+    local section="$1"
+    local -n positions="$2"
+    shift 2
+    local data="\x00"
+    for s in "$@"; do
+        local pos
+        binlength pos "$data"
+        positions[$s]="$pos"
+        data+="$s\x00"
+    done
+
+    sections[$section]="$data"
+    section_types[$section]="$SHT_STRTAB"
+}
+
 declare -Ai shstrtab_positions
 
 build_shstrtab() {
-    local -a shstrtab=("${!sections[@]}" .shstrtab)
-    local data="\x00"
-    for tab in "${shstrtab[@]}"; do
-        local pos
-        binlength pos "$data"
-        shstrtab_positions["$tab"]="$pos"
-        data+="$tab\x00"
-    done
-
-    sections[.shstrtab]="$data"
-    section_types[.shstrtab]="$SHT_STRTAB"
+    build_stringtable .shstrtab shstrtab_positions "${!sections[@]}" .shstrtab
 }
 
 declare -Ai section_index
