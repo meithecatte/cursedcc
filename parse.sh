@@ -75,8 +75,8 @@ declare -a ast=()
 
 # mknode out node
 mknode() {
-    local -n out=$1
-    out=${#ast[@]}
+    local -n mknode_out=$1
+    mknode_out=${#ast[@]}
     ast+=("$2")
 }
 
@@ -123,13 +123,17 @@ parse_function() {
     expect ident name || return 1
     expect lparen
     expect rparen
-    echo "Found a function: $name"
-    parse_compound
+
+    local body
+    parse_compound body
+    echo "function $name has body $body"
 }
 
+# parse_compound out
 parse_compound() {
     local -i lbrace_pos=$pos
     expect lbrace || return 1
+    local -a stmts=()
     while ! peek rbrace; do
         if ! has_tokens; then
             error "unclosed block"
@@ -139,9 +143,13 @@ parse_compound() {
             return 1
         fi
 
-        parse_statement
+        local stmt
+        parse_statement stmt
+        stmts+=("$stmt")
     done
     expect rbrace
+
+    mknode $1 "compound ${stmt[*]}"
 }
 
 # expect a semicolon. if not present, consume tokens until found
@@ -163,16 +171,17 @@ recover_semi() {
     done
 }
 
+# parse_statement out
 parse_statement() {
     has_tokens || return 1
     case "${toktype[pos]}" in
     kw:return)
         pos+=1
-        local n
-        if expect literal n; then
-            echo "returning $n"
-        fi
-        parse_semi;;
+        local retval
+        parse_expr retval
+        parse_semi
+
+        mknode $1 "return $retval";;
     *)
         error "statement not recognized"
         show_token $pos
@@ -180,5 +189,26 @@ parse_statement() {
 
         recover_semi
         return 1;;
+    esac
+}
+
+# parse_expr out
+parse_expr() {
+    local -n out="$1"
+    has_tokens || return 1
+    case "${toktype[pos]}" in
+    literal)
+        expect literal n
+        mknode out "literal $n";;
+    semi|rparen|rbrace)
+        error "expected expression"
+        show_token $pos
+        end_diagnostic
+        out=error;;
+    *)
+        error "expression not recognized"
+        show_token $pos
+        end_diagnostic
+        out=error;;
     esac
 }

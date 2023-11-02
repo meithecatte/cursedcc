@@ -22,3 +22,5 @@ parse_function
 if (( error_count > 0 )); then
     exit 1
 fi
+
+declare -p ast
