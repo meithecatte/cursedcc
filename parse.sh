@@ -10,9 +10,12 @@ declare src="$(< "$filename")"
 . diagnostics.sh
 
 # Tokens are stored in a SoA representation.
-declare -a toktype # type of token, e.g. ident, lbrace
-declare -a tokdata # associated data, e.g. the actual identifier or literal value
-declare -ia tokbegin tokend # input byte range that corresponds to this token
+# type of token, e.g. ident, lbrace
+declare -a toktype=()
+# associated data, e.g. the actual identifier or literal value
+declare -a tokdata=()
+# input byte range that corresponds to this token
+declare -ia tokbegin=() tokend=()
 
 # token type begin end data
 token() {
@@ -76,5 +79,14 @@ show_tokens() {
     done
 }
 
+declare -i pos=0
+declare -a ast=()
+
+# mknode out node
+mknode() {
+    local -n out=$1
+    out=${#ast[@]}
+    ast+=("$2")
+}
+
 lex
-show_tokens
