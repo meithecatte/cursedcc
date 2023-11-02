@@ -20,6 +20,14 @@ token() {
 lex() {
     local -i i
     for (( i=0; i < ${#src}; i++ )); do
+        if [[ "${src:i:2}" == "//" ]]; then
+            while (( i < ${#src} )) && [[ "${src:i:1}" != $'\n' ]]; do
+                i+=1
+            done
+
+            continue
+        fi
+
         local c="${src:i:1}"
         local -i begin=i
         case "$c" in
@@ -124,8 +132,9 @@ parse() {
 parse_function() {
     local name
     expect kw:int
-    expect ident name || return 1
+    expect ident name
     expect lparen
+    expect kw:void
     expect rparen
 
     local body
@@ -136,7 +145,7 @@ parse_function() {
 # parse_compound out
 parse_compound() {
     local -i lbrace_pos=$pos
-    expect lbrace || return 1
+    expect lbrace
     local -a stmts=()
     while ! peek rbrace; do
         if ! has_tokens; then
