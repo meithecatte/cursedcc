@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -eu
 
 . diagnostics.sh
 . parse.sh
@@ -17,3 +18,7 @@ src="$(< "$filename")"
 
 lex
 parse_function
+
+if (( error_count > 0 )); then
+    exit 1
+fi

@@ -54,13 +54,13 @@ show_line() {
 # show_range begin end comment
 show_range() {
     local -i begin=$1 end=$2
-    local comment=$3
+    local comment="${3-}"
 
     local before="${src:0:begin}"
     local newlines="${before//[!$'\n']/}"
     local -i lineno=${#newlines}
 
-    local -i curline=0 i lineend=${#src}
+    local -i curline=0 i linebegin=0 lineend=${#src}
     # FIXME: this is slow
     for (( i=0; i < ${#src}; i++)); do
         if [[ "${src:i:1}" == $'\n' ]]; then
@@ -83,14 +83,14 @@ show_range() {
 # show_token token_pos comment
 show_token() {
     local -i pos=$1
-    local comment="$2"
+    local comment="${2-}"
     show_range ${tokbegin[pos]} ${tokend[pos]} "$comment"
 }
 
 # show_eof comment
 show_eof() {
     local -i pos=${tokend[-1]}+1
-    show_range $pos $pos "$1"
+    show_range $pos $pos "${1-}"
 }
 
 end_diagnostic() {
