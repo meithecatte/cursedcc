@@ -80,6 +80,19 @@ show_range() {
     show_line "$filename" $lineno $((begin - linebegin)) $len "$line" "$comment"
 }
 
+# show_token token_pos comment
+show_token() {
+    local -i pos=$1
+    local comment="$2"
+    show_range ${tokbegin[pos]} ${tokend[pos]} "$comment"
+}
+
+# show_eof comment
+show_eof() {
+    local -i pos=${tokend[-1]}+1
+    show_range $pos $pos "$1"
+}
+
 end_diagnostic() {
     echo
     diagnostic_color=

@@ -1,14 +1,5 @@
 #!/usr/bin/env bash
 
-declare filename="$1"
-
-# XXX: this approach to reading a file causes a fork(), but all the alternatives
-# I've seen so far (read and mapfile) read the file one byte at a time, which is
-# worse.
-declare src="$(< "$filename")"
-
-. diagnostics.sh
-
 # Tokens are stored in a SoA representation.
 # type of token, e.g. ident, lbrace
 declare -a toktype=()
@@ -89,4 +80,105 @@ mknode() {
     ast+=("$2")
 }
 
-lex
+has_tokens() {
+    (( pos < ${#toktype[@]} ))
+}
+
+# expect token_type
+# expect token_type data_out
+expect() {
+    local token_type="$1"
+    if ! has_tokens; then
+        error "expected ${token_type}, got EOF"
+        show_eof "${token_type} expected here"
+        end_diagnostic
+        return 1
+    fi
+
+    if [[ "${toktype[pos]}" != "${token_type}" ]]; then
+        error "expected ${token_type}, got ${toktype[pos]}"
+        show_token $pos "${token_type} expected here"
+        end_diagnostic
+        return 1
+    fi
+
+    if (( $# >= 2 )); then
+        local -n out="$2"
+        out="${tokdata[pos]}"
+    fi
+
+    pos+=1
+}
+
+# peek token_type
+# succeeds if the next token is token_type
+peek() {
+    has_tokens || return 1
+    [[ "${toktype[pos]}" == "$1" ]]
+}
+
+parse_function() {
+    local name
+    expect kw:int
+    expect ident name || return 1
+    expect lparen
+    expect rparen
+    echo "Found a function: $name"
+    parse_compound
+}
+
+parse_compound() {
+    local -i lbrace_pos=$pos
+    expect lbrace || return 1
+    while ! peek rbrace; do
+        if ! has_tokens; then
+            error "unclosed block"
+            show_token $lbrace_pos "block opened here"
+            show_eof "closing brace expected here"
+            end_diagnostic
+            return 1
+        fi
+
+        parse_statement
+    done
+    expect rbrace
+}
+
+# expect a semicolon. if not present, consume tokens until found
+parse_semi() {
+    expect semi || recover_semi
+}
+
+recover_semi() {
+    while has_tokens; do
+        case "${toktype[pos]}" in
+        semi)
+            pos+=1
+            return;;
+        rbrace)
+            return;;
+        *)
+            pos+=1;;
+        esac
+    done
+}
+
+parse_statement() {
+    has_tokens || return 1
+    case "${toktype[pos]}" in
+    kw:return)
+        pos+=1
+        local n
+        if expect literal n; then
+            echo "returning $n"
+        fi
+        parse_semi;;
+    *)
+        error "statement not recognized"
+        show_token $pos
+        end_diagnostic
+
+        recover_semi
+        return 1;;
+    esac
+}
