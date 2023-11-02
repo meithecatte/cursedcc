@@ -17,7 +17,7 @@ declare src
 src="$(< "$filename")"
 
 lex
-parse_function
+parse
 
 if (( error_count > 0 )); then
     exit 1

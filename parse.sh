@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 # Tokens are stored in a SoA representation.
 # type of token, e.g. ident, lbrace
 declare -a toktype=()
@@ -115,6 +113,12 @@ expect() {
 peek() {
     has_tokens || return 1
     [[ "${toktype[pos]}" == "$1" ]]
+}
+
+parse() {
+    while has_tokens; do
+        parse_function
+    done
 }
 
 parse_function() {
