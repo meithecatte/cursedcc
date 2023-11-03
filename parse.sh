@@ -85,6 +85,9 @@ lex() {
             ";") token semi $begin $i;;
             "+") token plus $begin $i;;
             "-") token minus $begin $i;;
+            "*") token star $begin $i;;
+            "/") token div $begin $i;;
+            "%") token mod $begin $i;;
             "!") token logical_not $begin $i;;
             "~") token bitwise_not $begin $i;;
             *)
@@ -249,6 +252,7 @@ check_expr_start() {
     esac
 }
 
+# 6.5.1 Primary expressions Primary expressions
 parse_primary_expr() {
     check_expr_start
 
@@ -269,26 +273,84 @@ parse_primary_expr() {
     esac
 }
 
-parse_expr() {
+# 6.5.3 Unary operators
+parse_unary_expr() {
     check_expr_start
 
     case "${toktype[pos]}" in
     plus)
         expect minus
-        parse_expr
+        parse_unary_expr
         mknode "unary_plus $res";;
     minus)
         expect minus
-        parse_expr
+        parse_unary_expr
         mknode "negate $res";;
     bitwise_not)
         expect bitwise_not
-        parse_expr
+        parse_unary_expr
         mknode "bitwise_not $res";;
     logical_not)
         expect logical_not
-        parse_expr
+        parse_unary_expr
         mknode "logical_not $res";;
     *)  parse_primary_expr;;
     esac
+}
+
+# 6.5.5 Multiplicative operators
+parse_mult_expr() {
+    parse_unary_expr
+    local result=$res
+
+    while has_tokens; do
+        case "${toktype[pos]}" in
+        star)
+            expect star
+            parse_unary_expr
+            mknode "mul $result $res"
+            result=$res;;
+        div)
+            expect div
+            parse_unary_expr
+            mknode "div $result $res"
+            result=$res;;
+        mod)
+            expect mod
+            parse_unary_expr
+            mknode "div $result $res"
+            result=$res;;
+        *)  break;;
+        esac
+    done
+
+    res=$result
+}
+
+# 6.5.6 Additive operators
+parse_add_expr() {
+    parse_mult_expr
+    local result=$res
+
+    while has_tokens; do
+        case "${toktype[pos]}" in
+        plus)
+            expect plus
+            parse_mult_expr
+            mknode "add $result $res"
+            result=$res;;
+        minus)
+            expect minus
+            parse_mult_expr
+            mknode "sub $result $res"
+            result=$res;;
+        *)  break;;
+        esac
+    done
+
+    res=$result
+}
+
+parse_expr() {
+    parse_add_expr
 }
