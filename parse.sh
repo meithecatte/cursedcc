@@ -83,6 +83,10 @@ lex() {
             "{") token lbrace $begin $i;;
             "}") token rbrace $begin $i;;
             ";") token semi $begin $i;;
+            "+") token plus $begin $i;;
+            "-") token minus $begin $i;;
+            "!") token logical_not $begin $i;;
+            "~") token bitwise_not $begin $i;;
             *)
                 error "stray '$c' in program"
                 show_range $i $i
@@ -219,7 +223,7 @@ parse_statement() {
     case "${toktype[pos]}" in
     kw:return)
         pos+=1
-        local retval
+        local retval=error
         parse_expr retval
         parse_semi
 
@@ -234,10 +238,7 @@ parse_statement() {
     esac
 }
 
-# parse_expr out
-parse_expr() {
-    local -n out="$1"
-
+check_expr_start() {
     if ! has_tokens; then
         error "expected expression, got EOF"
         show_eof
@@ -246,18 +247,65 @@ parse_expr() {
     fi
 
     case "${toktype[pos]}" in
-    literal)
-        expect literal n
-        mknode out "literal $n";;
     semi|rparen|rbrace)
         error "expected expression"
         show_token $pos
-        end_diagnostic
-        out=error;;
+        end_diagnostic;;
+    esac
+}
+
+# parse_expr out
+parse_primary_expr() {
+    check_expr_start
+
+    case "${toktype[pos]}" in
+    literal)
+        local n
+        expect literal n
+        mknode $1 "literal $n";;
+    lparen)
+        expect lparen
+        parse_expr $1
+        expect rparen;;
     *)
         error "expression not recognized"
         show_token $pos
-        end_diagnostic
-        out=error;;
+        end_diagnostic;;
+    esac
+}
+
+parse_expr() {
+    check_expr_start
+
+    case "${toktype[pos]}" in
+    plus)
+        expect minus
+        local arg=error
+        parse_expr arg
+        local node="unary_plus $arg"
+        unset arg
+        mknode $1 "$node";;
+    minus)
+        expect minus
+        local arg=error
+        parse_expr arg
+        local node="negate $arg"
+        unset arg
+        mknode $1 "$node";;
+    bitwise_not)
+        expect bitwise_not
+        local arg=error
+        parse_expr arg
+        local node="bitwise_not $arg"
+        unset arg
+        mknode $1 "$node";;
+    logical_not)
+        expect logical_not
+        local arg=error
+        parse_expr arg
+        local node="logical_not $arg"
+        unset arg
+        mknode $1 "$node";;
+    *)  parse_primary_expr $1;;
     esac
 }
