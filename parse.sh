@@ -106,11 +106,10 @@ declare -i pos=0
 declare -a ast=()
 declare -Ai functions
 
-# mknode out node
+# mknode node
 mknode() {
-    local -n mknode_out=$1
-    mknode_out=${#ast[@]}
-    ast+=("$2")
+    res=${#ast[@]}
+    ast+=("$1")
 }
 
 has_tokens() {
@@ -135,10 +134,7 @@ expect() {
         return 1
     fi
 
-    if (( $# >= 2 )); then
-        local -n out="$2"
-        out="${tokdata[pos]}"
-    fi
+    expect_tokdata="${tokdata[pos]-}"
 
     pos+=1
 }
@@ -157,19 +153,17 @@ parse() {
 }
 
 parse_function() {
-    local name
     expect kw:int
-    expect ident name
+    expect ident
+    local name="$expect_tokdata"
     expect lparen
     expect kw:void
     expect rparen
 
-    local body
-    parse_compound body
-    functions[$name]=$body
+    parse_compound
+    functions[$name]=$res
 }
 
-# parse_compound out
 parse_compound() {
     local -i lbrace_pos=$pos
     expect lbrace
@@ -183,13 +177,12 @@ parse_compound() {
             return 1
         fi
 
-        local stmt
-        parse_statement stmt
-        stmts+=("$stmt")
+        parse_statement
+        stmts+=("$res")
     done
     expect rbrace
 
-    mknode $1 "compound ${stmt[*]}"
+    mknode "compound ${stmts[*]}"
 }
 
 # expect a semicolon. if not present, consume tokens until found
@@ -197,6 +190,8 @@ parse_semi() {
     expect semi || recover_semi
 }
 
+# TODO: recovery is currently not exercised as well as it could due to `set -e`.
+# Even then, it'd probably need some more heuristics to be useful.
 recover_semi() {
     while has_tokens; do
         case "${toktype[pos]}" in
@@ -211,7 +206,7 @@ recover_semi() {
     done
 }
 
-# parse_statement out
+# parse_statement
 parse_statement() {
     if ! has_tokens; then
         error "expected statement, got EOF"
@@ -223,11 +218,11 @@ parse_statement() {
     case "${toktype[pos]}" in
     kw:return)
         pos+=1
-        local retval=error
-        parse_expr retval
+        parse_expr
+        local retval=$res
         parse_semi
 
-        mknode $1 "return $retval";;
+        mknode "return $retval";;
     *)
         error "statement not recognized"
         show_token $pos
@@ -254,19 +249,19 @@ check_expr_start() {
     esac
 }
 
-# parse_expr out
 parse_primary_expr() {
     check_expr_start
 
     case "${toktype[pos]}" in
     literal)
-        local n
-        expect literal n
-        mknode $1 "literal $n";;
+        expect literal
+        mknode "literal $expect_tokdata";;
     lparen)
         expect lparen
-        parse_expr $1
-        expect rparen;;
+        parse_expr
+        local result=$res
+        expect rparen
+        res=$result;;
     *)
         error "expression not recognized"
         show_token $pos
@@ -280,32 +275,20 @@ parse_expr() {
     case "${toktype[pos]}" in
     plus)
         expect minus
-        local arg=error
-        parse_expr arg
-        local node="unary_plus $arg"
-        unset arg
-        mknode $1 "$node";;
+        parse_expr
+        mknode "unary_plus $res";;
     minus)
         expect minus
-        local arg=error
-        parse_expr arg
-        local node="negate $arg"
-        unset arg
-        mknode $1 "$node";;
+        parse_expr
+        mknode "negate $res";;
     bitwise_not)
         expect bitwise_not
-        local arg=error
-        parse_expr arg
-        local node="bitwise_not $arg"
-        unset arg
-        mknode $1 "$node";;
+        parse_expr
+        mknode "bitwise_not $res";;
     logical_not)
         expect logical_not
-        local arg=error
-        parse_expr arg
-        local node="logical_not $arg"
-        unset arg
-        mknode $1 "$node";;
-    *)  parse_primary_expr $1;;
+        parse_expr
+        mknode "logical_not $res";;
+    *)  parse_primary_expr;;
     esac
 }
