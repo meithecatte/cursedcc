@@ -1,3 +1,8 @@
+EAX=0
+ECX=1
+EDX=2
+EBX=3
+
 modrm_reg() {
     # reg - register field
     # rm - r/m field (register index)
@@ -54,11 +59,30 @@ x64_sub_reg_reg() {
     modrm_reg "$1" "$src" "$dst"
 }
 
+x64_xor_reg_reg() {
+    local -n out="$1"
+    local dst="$2" src="$3"
+    out+="\x31"
+    modrm_reg "$1" "$src" "$dst"
+}
+
 x64_imul_reg_reg() {
     local -n out="$1"
     local dst="$2" src="$3"
     out+="\x0f\xaf"
     modrm_reg "$1" "$dst" "$src"
+}
+
+x64_cdq() {
+    local -n out="$1"
+    out+="\x99"
+}
+
+x64_idiv_reg() {
+    local -n out="$1"
+    local reg="$2"
+    out+="\xf7"
+    modrm_reg "$1" 7 "$reg"
 }
 
 emit_function() {
@@ -102,33 +126,40 @@ emit_expr() {
     local -a expr=(${ast[node]})
     case ${expr[0]} in
         literal)
-            x64_mov_reg_imm "$out" 0 ${expr[1]};;
+            x64_mov_reg_imm "$out" $EAX ${expr[1]};;
         bitwise_not)
             emit_expr "$out" ${expr[1]}
-            x64_not_reg "$out" 0;;
+            x64_not_reg "$out" $EAX;;
         negate)
             emit_expr "$out" ${expr[1]}
-            x64_neg_reg "$out" 0;;
+            x64_neg_reg "$out" $EAX;;
         unary_plus)
             emit_expr "$out" ${expr[1]};;
         add)
             emit_expr "$out" ${expr[1]}
-            x64_push_reg "$out" 0
+            x64_push_reg "$out" $EAX
             emit_expr "$out" ${expr[2]}
-            x64_pop_reg "$out" 1
-            x64_add_reg_reg "$out" 0 1;;
+            x64_pop_reg "$out" $ECX
+            x64_add_reg_reg "$out" $EAX $ECX;;
         sub)
             emit_expr "$out" ${expr[2]}
-            x64_push_reg "$out" 0
+            x64_push_reg "$out" $EAX
             emit_expr "$out" ${expr[1]}
-            x64_pop_reg "$out" 1
-            x64_sub_reg_reg "$out" 0 1;;
+            x64_pop_reg "$out" $ECX
+            x64_sub_reg_reg "$out" $EAX 1;;
         mul)
             emit_expr "$out" ${expr[2]}
-            x64_push_reg "$out" 0
+            x64_push_reg "$out" $EAX
             emit_expr "$out" ${expr[1]}
-            x64_pop_reg "$out" 1
-            x64_imul_reg_reg "$out" 0 1;;
+            x64_pop_reg "$out" $ECX
+            x64_imul_reg_reg "$out" $EAX 1;;
+        div)
+            emit_expr "$out" ${expr[2]}
+            x64_push_reg "$out" $EAX
+            emit_expr "$out" ${expr[1]}
+            x64_pop_reg "$out" $ECX
+            x64_cdq "$out"
+            x64_idiv_reg "$out" $ECX;;
         *)
             fail "TODO(emit_expr): ${expr[@]}";;
     esac

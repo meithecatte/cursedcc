@@ -318,7 +318,7 @@ parse_mult_expr() {
         mod)
             expect mod
             parse_unary_expr
-            mknode "div $result $res"
+            mknode "mod $result $res"
             result=$res;;
         *)  break;;
         esac
