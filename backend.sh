@@ -30,6 +30,30 @@ x64_neg_reg() {
     modrm_reg "$1" 3 "$reg"
 }
 
+x64_push_reg() {
+    local out="$1" reg="$2"
+    p8 "$1" $((0x50 + reg))
+}
+
+x64_pop_reg() {
+    local out="$1" reg="$2"
+    p8 "$1" $((0x58 + reg))
+}
+
+x64_add_reg_reg() {
+    local -n out="$1"
+    local dst="$2" src="$3"
+    out+="\x01"
+    modrm_reg "$1" "$src" "$dst"
+}
+
+x64_sub_reg_reg() {
+    local -n out="$1"
+    local dst="$2" src="$3"
+    out+="\x29"
+    modrm_reg "$1" "$src" "$dst"
+}
+
 emit_function() {
     local fname="$1"
 
@@ -80,6 +104,18 @@ emit_expr() {
             x64_neg_reg "$out" 0;;
         unary_plus)
             emit_expr "$out" ${expr[1]};;
+        add)
+            emit_expr "$out" ${expr[1]}
+            x64_push_reg "$out" 0
+            emit_expr "$out" ${expr[2]}
+            x64_pop_reg "$out" 1
+            x64_add_reg_reg "$out" 0 1;;
+        sub)
+            emit_expr "$out" ${expr[2]}
+            x64_push_reg "$out" 0
+            emit_expr "$out" ${expr[1]}
+            x64_pop_reg "$out" 1
+            x64_sub_reg_reg "$out" 0 1;;
         *)
             fail "TODO(emit_expr): ${expr[@]}";;
     esac
