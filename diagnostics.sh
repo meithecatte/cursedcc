@@ -1,16 +1,16 @@
 declare -i error_count=0
 declare -i warning_count=0
 
-fail() {
-    echo "$@" >&2
-    exit 1
-}
-
 RED_BOLD=$'\033[91;1m'
 YELLOW_BOLD=$'\033[33;1m'
 BLUE_BOLD=$'\033[94;1m'
 FG_DEFAULT=$'\033[39m'
 RESET=$'\033[0m'
+
+fail() {
+    echo "${RED_BOLD}fatal error${FG_DEFAULT}: $@${RESET}" >&2
+    exit 1
+}
 
 # the color to use when pointing at parts of source code
 declare diagnostic_color
