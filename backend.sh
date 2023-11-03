@@ -54,6 +54,13 @@ x64_sub_reg_reg() {
     modrm_reg "$1" "$src" "$dst"
 }
 
+x64_imul_reg_reg() {
+    local -n out="$1"
+    local dst="$2" src="$3"
+    out+="\x0f\xaf"
+    modrm_reg "$1" "$dst" "$src"
+}
+
 emit_function() {
     local fname="$1"
 
@@ -116,6 +123,12 @@ emit_expr() {
             emit_expr "$out" ${expr[1]}
             x64_pop_reg "$out" 1
             x64_sub_reg_reg "$out" 0 1;;
+        mul)
+            emit_expr "$out" ${expr[2]}
+            x64_push_reg "$out" 0
+            emit_expr "$out" ${expr[1]}
+            x64_pop_reg "$out" 1
+            x64_imul_reg_reg "$out" 0 1;;
         *)
             fail "TODO(emit_expr): ${expr[@]}";;
     esac
