@@ -21,6 +21,13 @@ x64_mov_reg_imm() {
     p32 "$out" "$imm"
 }
 
+x64_mov_reg_reg() {
+    local -n out="$1"
+    local dst="$2" src="$3"
+    out+="\x89"
+    modrm_reg "$1" "$src" "$dst"
+}
+
 x64_not_reg() {
     local -n out="$1"
     local reg="$2"
@@ -160,6 +167,14 @@ emit_expr() {
             x64_pop_reg "$out" $ECX
             x64_cdq "$out"
             x64_idiv_reg "$out" $ECX;;
+        mod)
+            emit_expr "$out" ${expr[2]}
+            x64_push_reg "$out" $EAX
+            emit_expr "$out" ${expr[1]}
+            x64_pop_reg "$out" $ECX
+            x64_cdq "$out"
+            x64_idiv_reg "$out" $ECX
+            x64_mov_reg_reg "$out" $EAX $EDX;;
         *)
             fail "TODO(emit_expr): ${expr[@]}";;
     esac
