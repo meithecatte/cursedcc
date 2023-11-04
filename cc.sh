@@ -44,7 +44,7 @@ fi
 declare -p functions
 declare -p ast
 
-sections[.text]="\x31\xc0\xc3"
+sections[.text]=""
 section_types[.text]="$SHT_PROGBITS"
 section_attrs[.text]=$((SHF_ALLOC | SHF_EXECINSTR))
 
