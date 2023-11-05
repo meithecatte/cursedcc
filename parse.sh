@@ -33,7 +33,7 @@ lex() {
             # Preprocessor linemarker
             local marker=($line)
             lineno="${marker[1]}"
-            : "${line##\# *([0-9]| )\"}"
+            : "${line##\# *([0-9]) \"}"
             : "${_%%\"*([0-9]| )}"
             filename="${_//\\\"/\"}"
         else
