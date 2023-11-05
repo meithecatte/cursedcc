@@ -16,16 +16,22 @@ declare -A token_names=(
     [lbrace]="{" [rbrace]="}"
     [lbrack]="[" [rbrack]="]"
     [semi]=";"
-    [plus]="+"  [pluseq]="+="  [incr]="++"
-    [minus]="-" [minuseq]="-=" [decr]="--"
+    [plus]="+"  [pluseq]="+="   [incr]="++"
+    [minus]="-" [minuseq]="-="  [decr]="--"
     [star]="*"  [stareq]="*="
     [div]="/"   [diveq]="/="
     [mod]="%"   [modeq]="%="
+    [xor]="^"   [xoreq]="^="
+    [band]="&"  [bandeq]="&="   [land]="&&"
+    [bor]="|"   [boreq]="|="    [lor]="||"
     [assn]="="  [eq]="=="
     [lt]="<"    [le]="<="
     [gt]=">"    [ge]=">="
-    [logical_not]="!"   [noteq]="!="
-    [bitwise_not]="~"
+    [shl]="<<"  [shleq]="<<="
+    [shr]=">>"  [shreq]=">>="
+    [lnot]="!"  [noteq]="!="
+    [bnot]="~"
+    [comma]="," [colon]=":" [question]="?"
 )
 
 # token type begin end
@@ -356,14 +362,14 @@ parse_unary_expr() {
         expect minus
         parse_unary_expr
         mknode "negate $res";;
-    bitwise_not)
-        expect bitwise_not
+    bnot)
+        expect bnot
         parse_unary_expr
-        mknode "bitwise_not $res";;
-    logical_not)
-        expect logical_not
+        mknode "bnot $res";;
+    lnot)
+        expect lnot
         parse_unary_expr
-        mknode "logical_not $res";;
+        mknode "lnot $res";;
     *)  parse_primary_expr;;
     esac
 }

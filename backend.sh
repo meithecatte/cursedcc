@@ -134,7 +134,7 @@ emit_expr() {
     case ${expr[0]} in
         literal)
             x64_mov_reg_imm "$out" $EAX ${expr[1]};;
-        bitwise_not)
+        bnot)
             emit_expr "$out" ${expr[1]}
             x64_not_reg "$out" $EAX;;
         negate)
