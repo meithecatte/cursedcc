@@ -59,6 +59,20 @@ x64_add_reg_reg() {
     modrm_reg "$1" "$src" "$dst"
 }
 
+x64_or_reg_reg() {
+    local -n out="$1"
+    local dst="$2" src="$3"
+    out+="\x09"
+    modrm_reg "$1" "$src" "$dst"
+}
+
+x64_and_reg_reg() {
+    local -n out="$1"
+    local dst="$2" src="$3"
+    out+="\x21"
+    modrm_reg "$1" "$src" "$dst"
+}
+
 x64_sub_reg_reg() {
     local -n out="$1"
     local dst="$2" src="$3"
@@ -154,6 +168,24 @@ emit_expr() {
             emit_expr "$out" ${expr[1]}
             x64_pop_reg "$out" $ECX
             x64_sub_reg_reg "$out" $EAX 1;;
+        xor)
+            emit_expr "$out" ${expr[2]}
+            x64_push_reg "$out" $EAX
+            emit_expr "$out" ${expr[1]}
+            x64_pop_reg "$out" $ECX
+            x64_xor_reg_reg "$out" $EAX 1;;
+        band)
+            emit_expr "$out" ${expr[2]}
+            x64_push_reg "$out" $EAX
+            emit_expr "$out" ${expr[1]}
+            x64_pop_reg "$out" $ECX
+            x64_and_reg_reg "$out" $EAX 1;;
+        bor)
+            emit_expr "$out" ${expr[2]}
+            x64_push_reg "$out" $EAX
+            emit_expr "$out" ${expr[1]}
+            x64_pop_reg "$out" $ECX
+            x64_or_reg_reg "$out" $EAX 1;;
         mul)
             emit_expr "$out" ${expr[2]}
             x64_push_reg "$out" $EAX
