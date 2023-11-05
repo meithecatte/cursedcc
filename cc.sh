@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -eu
+shopt -s extglob
 
 SELFDIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
@@ -9,16 +10,17 @@ SELFDIR="$(dirname -- "${BASH_SOURCE[0]}")"
 . "$SELFDIR/elf.sh"
 . "$SELFDIR/backend.sh"
 
-declare objonly=0
+declare objonly=0 preprocessed=0
 
 usage() {
-    fail "Usage: $0 [-c] [-o outfile] file"
+    fail "Usage: $0 [-c] [-p] [-o outfile] file"
 }
 
-while getopts "co:" opt; do
+while getopts "co:p" opt; do
     case $opt in
         c) objonly=1;;
         o) outfile="$OPTARG";;
+        p) preprocessed=1;;
         *) usage;;
     esac
 done
@@ -31,10 +33,15 @@ fi
 
 declare filename="$1"
 
-declare src
-src="$(< "$filename")"
+if (( preprocessed == 1 )); then
+    # shellcheck disable=SC2094 # don't worry, we're not writing to $filename
+    lex "$filename" < "$filename"
+else
+    # A normal pipeline will run `lex` in a subprocess, losing the ability
+    # to modify our variables
+    lex "$filename" < <(cc -E "$filename")
+fi
 
-lex
 parse
 
 if (( error_count > 0 )); then

@@ -1,69 +1,102 @@
+# The preprocessed lines. Each line may come from a different file.
+declare -a lines=()
+# The file and line number for each line in `lines`.
+declare -a line_map=()
+
 # Tokens are stored in a SoA representation.
 # type of token, e.g. ident, lbrace
 declare -a toktype=()
-# associated data, e.g. the actual identifier or literal value
+# actual text context of token
 declare -a tokdata=()
-# input byte range that corresponds to this token
-declare -ia tokbegin=() tokend=()
+# input line (index to `lines`) and offset within that line
+declare -ia tokline=() tokcol=()
 
-# token type begin end data
+# token type begin end
 token() {
-    local -i idx=${#toktype[@]}
-    toktype[idx]="$1"
-    tokbegin[idx]="$2"
-    tokend[idx]="$3"
-    if (( $# >= 4 )); then
-        tokdata[idx]="$4"
+    local type="$1"
+    local -i idx=${#toktype[@]} line=${#lines[@]}-1 begin="$2" end="$3"
+    toktype[idx]="$type"
+    tokdata[idx]="${lines[-1]:begin:end-begin+1}"
+    tokline[idx]="$line"
+    tokcol[idx]="$begin"
+}
+
+declare in_multiline_comment=
+
+# lex filename < input
+lex() {
+    local -i eof=0 lineno=1
+    local filename="$1"
+    while (( eof == 0 )); do
+        IFS= read -r line || eof=1
+        if [[ "${line:0:1}" == "#" ]]; then
+            # Preprocessor linemarker
+            local marker=($line)
+            lineno="${marker[1]}"
+            : "${line##\# *([0-9]| )\"}"
+            : "${_%%\"*([0-9]| )}"
+            filename="${_//\\\"/\"}"
+        else
+            local -i index=${#lines[@]}
+            lines+=("$line")
+            line_map+=("${filename}:${lineno}")
+            lexline $index "$line"
+
+            lineno+=1
+        fi
+    done
+
+    if [ -n "$in_multiline_comment" ]; then
+        local -a pos=($in_multiline_comment)
+        local -i line="${pos[0]}" col="${pos[1]}"
+        error "unclosed block comment"
+        show_range $line $col $((col + 1)) "comment begins here"
+        end_diagnostic
     fi
 }
 
-lex() {
-    local -i i
-    for (( i=0; i < ${#src}; i++ )); do
-        if [[ "${src:i:2}" == "//" ]]; then
-            while (( i < ${#src} )) && [[ "${src:i:1}" != $'\n' ]]; do
+# lexline line_index line
+lexline() {
+    local -i curline=$1 i
+    local line="$2"
+
+    for (( i=0; i < ${#line}; i++ )); do
+        if [ -n "$in_multiline_comment" ]; then
+            if [[ "${line:i:2}" == "*/" ]]; then
+                in_multiline_comment=
                 i+=1
-            done
+            fi
 
             continue
-        elif [[ "${src:i:2}" == "/*" ]]; then
-            local -i comment_begin=i
-            i+=2
-
-            while (( i < ${#src} )) && [[ "${src:i:2}" != "*/" ]]; do
-                i+=1
-            done
-
-            if (( i >= ${#src} )); then
-                error "unclosed block comment"
-                show_range $comment_begin $((comment_begin + 1)) \
-                    "comment begins here"
-                end_diagnostic
-                continue
-            else
-                i+=2
-                continue
-            fi
         fi
 
-        local c="${src:i:1}"
+        if [[ "${line:i:2}" == "//" ]]; then
+            return
+        elif [[ "${line:i:2}" == "/*" ]]; then
+            in_multiline_comment="$curline $i"
+            i+=1
+            continue
+        fi
+
+        local c="${line:i:1}"
         local -i begin=i
         case "$c" in
             ' ' | $'\n' | $'\t' | $'\r');;
             [_a-zA-Z0-9])
                 local ident="$c"
-                while [[ "${src:i+1:1}" =~ [_A-Za-z0-9] ]]; do
+                while [[ "${line:i+1:1}" =~ [_A-Za-z0-9] ]]; do
                     ((i=i+1))
-                    ident+="${src:i:1}"
+                    ident+="${line:i:1}"
                 done
 
                 if [[ "${ident:0:1}" =~ [0-9] ]]; then
                     if [ -n "${ident//[0-9]/}" ]; then
                         error "invalid identifier"
-                        show_range $begin $i "identifier can't start with a digit"
+                        show_range $curline $begin $i \
+                            "identifier can't start with a digit"
                         end_diagnostic
                     else
-                        token literal $begin $i "$ident"
+                        token literal $begin $i
                     fi
                 else
                     case "$ident" in
@@ -73,9 +106,9 @@ lex() {
                         struct|switch|typedef|union|unsigned|void|volatile|while|\
                         _Alignas|_Atomic|_Bool|_Complex|_Generic|_Imaginary|\
                         _Noreturn|_Static_assert|_Thread_local)
-                            token "kw:$ident" $begin $i "$ident";;
+                            token "kw:$ident" $begin $i;;
                         *)
-                            token ident $begin $i "$ident";;
+                            token ident $begin $i;;
                     esac
                 fi;;
             "(") token lparen $begin $i;;
@@ -92,7 +125,7 @@ lex() {
             "~") token bitwise_not $begin $i;;
             *)
                 error "stray '$c' in program"
-                show_range $i $i
+                show_range $curline $i $i
                 end_diagnostic;;
         esac
     done
@@ -101,7 +134,7 @@ lex() {
 show_tokens() {
     local -i i
     for (( i=0; i < ${#toktype[@]}; i++ )); do
-        show_range ${tokbegin[i]} ${tokend[i]} "${toktype[i]} ${tokdata[i]}"
+        show_token $i "${toktype[i]} ${tokdata[i]}"
     done
 }
 

@@ -13,7 +13,7 @@ fail() {
 }
 
 # the color to use when pointing at parts of source code
-declare diagnostic_color
+declare diagnostic_color=
 
 warning() {
     warning_count+=1
@@ -27,17 +27,20 @@ error() {
     echo "${RED_BOLD}error${FG_DEFAULT}: $@${RESET}" >&2
 }
 
-# show_line filename lineno begin len line comment
+# show_line filename:lineno begin len line comment
 # (0-indexed)
 show_line() {
-    local filename=$1
-    local -i lineno=$2+1 begin=$3 len=$4
-    local line="$5" comment="$6"
+    local filename=$1 split
+    IFS=: split=($filename)
+    local -i lineno="${split[-1]}"
+
+    local -i begin=$2 len=$3
+    local line="$4" comment="$5"
 
     local -i width=${#lineno}+3
-    printf "${BLUE_BOLD}%*s ${RESET}%s:%d:%d\n" \
+    printf "${BLUE_BOLD}%*s ${RESET}%s:%d\n" \
         $width "-->" "$filename" \
-        $lineno $((begin + 1)) >&2
+        $((begin + 1)) >&2
     printf "${BLUE_BOLD}%*s\n" $width " | " >&2
     printf "%d | ${RESET}%s\n" $lineno "$line" >&2
     printf "${BLUE_BOLD}%*s${diagnostic_color}%*s" $width " | " $begin "" >&2
@@ -51,40 +54,24 @@ show_line() {
     printf "${BLUE_BOLD}%*s${RESET}\n" $width " | " >&2
 }
 
-# show_range begin end comment
+# show_range line begin end comment
 show_range() {
-    local -i begin=$1 end=$2
-    local comment="${3-}"
+    local -i line=$1 begin=$2 end=$3
+    local comment="${4-}"
 
-    local before="${src:0:begin}"
-    local newlines="${before//[!$'\n']/}"
-    local -i lineno=${#newlines}
-
-    local -i curline=0 i linebegin=0 lineend=${#src}
-    # FIXME: this is slow
-    for (( i=0; i < ${#src}; i++)); do
-        if [[ "${src:i:1}" == $'\n' ]]; then
-            if [[ $curline == $lineno ]]; then
-                local -i lineend=i
-                break
-            fi
-            curline+=1
-            if [[ $curline == $lineno ]]; then
-                local -i linebegin=i+1
-            fi
-        fi
-    done
-
-    local line="${src:linebegin:lineend-linebegin}"
-    local -i len=end-begin+1
-    show_line "$filename" $lineno $((begin - linebegin)) $len "$line" "$comment"
+    local filename="${line_map[line]}"
+    show_line "$filename" $begin $((end-begin+1)) "${lines[line]}" "$comment"
 }
 
 # show_token token_pos comment
 show_token() {
     local -i pos=$1
     local comment="${2-}"
-    show_range ${tokbegin[pos]} ${tokend[pos]} "$comment"
+    local -i line="${tokline[pos]}"
+    local filename="${line_map[line]}"
+    local -i begin="${tokcol[pos]}"
+    local -i len="${#tokdata[pos]}"
+    show_line "$filename" $begin $len "${lines[line]}" "$comment"
 }
 
 # show_eof comment
