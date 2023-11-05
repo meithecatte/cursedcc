@@ -76,8 +76,8 @@ show_token() {
 
 # show_eof comment
 show_eof() {
-    local -i pos=${tokend[-1]}+1
-    show_range $pos $pos "${1-}"
+    local -i pos=${tokcol[-1]}+${#tokdata[-1]}
+    show_range ${tokline[-1]} $pos $pos "${1-}"
 }
 
 end_diagnostic() {

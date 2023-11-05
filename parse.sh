@@ -175,20 +175,32 @@ has_tokens() {
     (( pos < ${#toktype[@]} ))
 }
 
+# spell_token token_type
+spell_token() {
+    case $1 in
+    ident)  spelled="identifier";;
+    kw:*)   spelled="\`${1#kw:}\`";;
+    *)      spelled="\`${token_names["$1"]}\`";;
+    esac
+}
+
 # expect token_type
 # expect token_type data_out
 expect() {
     local token_type="$1"
     if ! has_tokens; then
-        error "expected ${token_type}, got EOF"
-        show_eof "${token_type} expected here"
+        spell_token "$token_type"
+        error "expected ${spelled}, got EOF"
+        show_eof "${spelled} expected here"
         end_diagnostic
         return 1
     fi
 
     if [[ "${toktype[pos]}" != "${token_type}" ]]; then
-        error "expected ${token_type}, got ${toktype[pos]}"
-        show_token $pos "${token_type} expected here"
+        spell_token "$token_type"; local spelled_expected=$spelled
+        spell_token "${toktype[pos]}"; local spelled_actual=$spelled
+        error "expected ${spelled_expected}, got ${spelled_actual}"
+        show_token $pos "${spelled_expected} expected here"
         end_diagnostic
         return 1
     fi
@@ -304,7 +316,8 @@ check_expr_start() {
     semi|rparen|rbrace)
         error "expected expression"
         show_token $pos
-        end_diagnostic;;
+        end_diagnostic
+        return 1;;
     esac
 }
 
@@ -325,7 +338,8 @@ parse_primary_expr() {
     *)
         error "expression not recognized"
         show_token $pos
-        end_diagnostic;;
+        end_diagnostic
+        return 1;;
     esac
 }
 
