@@ -13,7 +13,8 @@ SELFDIR="$(dirname -- "${BASH_SOURCE[0]}")"
 declare objonly=0 preprocessed=0
 
 usage() {
-    fail "Usage: $0 [-c] [-p] [-o outfile] file"
+    echo "Usage: $0 [-c] [-p] [-o outfile] file" >&2
+    exit 1
 }
 
 while getopts "co:p" opt; do
