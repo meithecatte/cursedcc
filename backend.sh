@@ -4,7 +4,9 @@ EDX=2
 EBX=3
 
 CC_E=4
+CC_Z=4
 CC_NE=5
+CC_NZ=5
 CC_L=12
 CC_GE=13
 CC_LE=14
@@ -162,6 +164,21 @@ setcc_reg() {
     p8 "$1" $((0x90 + cc))
     modrm_reg "$1" 0 "$dst"
 }
+
+jcc_forward() {
+    local -n out="$1"
+    local cc="$2" dist="$3"
+    if (( dist < 0x80 )); then
+        p8 "$1" $((0x70 + cc))
+        p8 "$1" $dist
+    else
+        out+="\x0f"
+        p8 "$1" $((0x80 + cc))
+        p32 "$1" $dist
+    fi
+}
+
+# AST traversal starts here
 
 emit_function() {
     local fname="$1"
@@ -327,7 +344,33 @@ emit_expr() {
         lnot)
             emit_expr "$out" ${expr[1]}
             test_reg_reg "$out" $EAX $EAX
-            cc_to_reg "$out" $CC_E $EAX;;
+            cc_to_reg "$out" $CC_Z $EAX;;
+        land)
+            local short_circuit=""
+            emit_expr short_circuit ${expr[2]}
+            test_reg_reg short_circuit $EAX $EAX
+            local -i short_circuit_len
+            binlength short_circuit_len "$short_circuit"
+
+            emit_expr "$out" ${expr[1]}
+            test_reg_reg "$out" $EAX $EAX
+            jcc_forward "$out" $CC_Z $short_circuit_len
+            local -n vout="$out"
+            vout+="$short_circuit"
+            cc_to_reg "$out" $CC_NZ $EAX;;
+        lor)
+            local short_circuit=""
+            emit_expr short_circuit ${expr[2]}
+            test_reg_reg short_circuit $EAX $EAX
+            local -i short_circuit_len
+            binlength short_circuit_len "$short_circuit"
+
+            emit_expr "$out" ${expr[1]}
+            test_reg_reg "$out" $EAX $EAX
+            jcc_forward "$out" $CC_NZ $short_circuit_len
+            local -n vout="$out"
+            vout+="$short_circuit"
+            cc_to_reg "$out" $CC_NZ $EAX;;
         *)
             fail "TODO(emit_expr): ${expr[@]}";;
     esac
