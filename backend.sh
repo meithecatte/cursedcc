@@ -122,6 +122,13 @@ x64_cmp_reg_reg() {
     modrm_reg "$1" "$src" "$dst"
 }
 
+x64_test_reg_reg() {
+    local -n out="$1"
+    local dst="$2" src="$3"
+    out+="\x85"
+    modrm_reg "$1" "$src" "$dst"
+}
+
 x64_imul_reg_reg() {
     local -n out="$1"
     local dst="$2" src="$3"
@@ -317,6 +324,10 @@ emit_expr() {
             x64_pop_reg "$out" $ECX
             x64_cmp_reg_reg "$out" $EAX $ECX
             cc_to_reg "$out" $CC_GE $EAX;;
+        lnot)
+            emit_expr "$out" ${expr[1]}
+            x64_test_reg_reg "$out" $EAX $EAX
+            cc_to_reg "$out" $CC_E $EAX;;
         *)
             fail "TODO(emit_expr): ${expr[@]}";;
     esac
