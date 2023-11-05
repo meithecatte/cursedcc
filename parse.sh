@@ -354,79 +354,73 @@ parse_unary_expr() {
     check_expr_start
 
     case "${toktype[pos]}" in
-    plus)
-        expect minus
-        parse_unary_expr
-        mknode "unary_plus $res";;
-    minus)
-        expect minus
-        parse_unary_expr
-        mknode "negate $res";;
-    bnot)
-        expect bnot
-        parse_unary_expr
-        mknode "bnot $res";;
-    lnot)
-        expect lnot
-        parse_unary_expr
-        mknode "lnot $res";;
-    *)  parse_primary_expr;;
+    plus)   pos+=1; parse_unary_expr; mknode "unary_plus $res";;
+    minus)  pos+=1; parse_unary_expr; mknode "negate $res";;
+    bnot)   pos+=1; parse_unary_expr; mknode "bnot $res";;
+    lnot)   pos+=1; parse_unary_expr; mknode "lnot $res";;
+    *)      parse_primary_expr;;
     esac
 }
 
-# 6.5.5 Multiplicative operators
-parse_mult_expr() {
-    parse_unary_expr
-    local result=$res
+declare prev_level=parse_unary_expr
 
-    while has_tokens; do
-        case "${toktype[pos]}" in
-        star)
-            expect star
-            parse_unary_expr
-            mknode "mul $result $res"
-            result=$res;;
-        div)
-            expect div
-            parse_unary_expr
-            mknode "div $result $res"
-            result=$res;;
-        mod)
-            expect mod
-            parse_unary_expr
-            mknode "mod $result $res"
-            result=$res;;
-        *)  break;;
-        esac
+# left_level this [tok node]...
+left_level() {
+    local this="$1"; shift
+    local code="$this() { $prev_level; while has_tokens; do local lhs=\$res; "
+    code+=$'case "${toktype[pos]}" in\n'
+    while (( $# >= 2 )); do
+        code+=$"$1) pos+=1; $prev_level; mknode \"$2 \$lhs \$res\";; "
+        shift 2
     done
-
-    res=$result
+    code+=$'*) break;;\n'
+    code+=$'esac\n'
+    code+=$'done; }'
+    eval "$code"
+    prev_level=$this
 }
+
+# 6.5.5 Multiplicative operators
+left_level parse_mult_expr \
+    star mul    div  div    mod  mod
 
 # 6.5.6 Additive operators
-parse_add_expr() {
-    parse_mult_expr
-    local result=$res
+left_level parse_add_expr \
+    plus add    minus sub
 
-    while has_tokens; do
-        case "${toktype[pos]}" in
-        plus)
-            expect plus
-            parse_mult_expr
-            mknode "add $result $res"
-            result=$res;;
-        minus)
-            expect minus
-            parse_mult_expr
-            mknode "sub $result $res"
-            result=$res;;
-        *)  break;;
-        esac
-    done
+# 6.5.7 Bitwise shift operators
+left_level parse_shift_expr \
+    shl shl     shr shr
 
-    res=$result
-}
+# 6.5.8 Relational operators
+left_level parse_relational_expr \
+    lt lt       gt gt \
+    le le       ge ge
+
+# 6.5.9 Equality operators
+left_level parse_equality_expr \
+    eq eq       noteq noteq
+
+# 6.5.10 Bitwise AND operator
+left_level parse_and_expr \
+    band band
+
+# 6.5.11 Bitwise exclusive OR operator
+left_level parse_xor_expr \
+    xor xor
+
+# 6.5.12 Bitwise inclusive OR operator
+left_level parse_or_expr \
+    bor bor
+
+# 6.5.13 Logical AND operator
+left_level parse_land_expr \
+    land land
+
+# 6.5.14 Logical OR operator
+left_level parse_lor_expr \
+    lor lor
 
 parse_expr() {
-    parse_add_expr
+    parse_lor_expr
 }
