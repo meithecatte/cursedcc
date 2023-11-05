@@ -3,6 +3,13 @@ ECX=1
 EDX=2
 EBX=3
 
+CC_E=4
+CC_NE=5
+CC_L=12
+CC_GE=13
+CC_LE=14
+CC_G=15
+
 modrm_reg() {
     # reg - register field
     # rm - r/m field (register index)
@@ -108,6 +115,13 @@ x64_xor_reg_reg() {
     modrm_reg "$1" "$src" "$dst"
 }
 
+x64_cmp_reg_reg() {
+    local -n out="$1"
+    local dst="$2" src="$3"
+    out+="\x39"
+    modrm_reg "$1" "$src" "$dst"
+}
+
 x64_imul_reg_reg() {
     local -n out="$1"
     local dst="$2" src="$3"
@@ -125,6 +139,21 @@ x64_idiv_reg() {
     local reg="$2"
     out+="\xf7"
     modrm_reg "$1" 7 "$reg"
+}
+
+x64_movzxb_reg_reg() {
+    local -n out="$1"
+    local dst="$2" src="$3"
+    out+="\x0f\xb6"
+    modrm_reg "$1" "$src" "$dst"
+}
+
+x64_setcc_reg() {
+    local -n out="$1"
+    local cc="$2" dst="$3"
+    out+="\x0f"
+    p8 "$1" $((0x90 + cc))
+    modrm_reg "$1" 0 "$dst"
 }
 
 emit_function() {
@@ -159,6 +188,12 @@ emit_statement() {
         *)
             fail "TODO(emit_statement): ${stmt[@]}";;
     esac
+}
+
+cc_to_reg() {
+    local out="$1" cc="$2" reg="$3"
+    x64_setcc_reg $out $cc $reg
+    x64_movzxb_reg_reg $out $reg $reg
 }
 
 # emits code that puts the result in EAX
@@ -240,6 +275,48 @@ emit_expr() {
             x64_cdq "$out"
             x64_idiv_reg "$out" $ECX
             x64_mov_reg_reg "$out" $EAX $EDX;;
+        eq)
+            emit_expr "$out" ${expr[2]}
+            x64_push_reg "$out" $EAX
+            emit_expr "$out" ${expr[1]}
+            x64_pop_reg "$out" $ECX
+            x64_cmp_reg_reg "$out" $EAX $ECX
+            cc_to_reg "$out" $CC_E $EAX;;
+        noteq)
+            emit_expr "$out" ${expr[2]}
+            x64_push_reg "$out" $EAX
+            emit_expr "$out" ${expr[1]}
+            x64_pop_reg "$out" $ECX
+            x64_cmp_reg_reg "$out" $EAX $ECX
+            cc_to_reg "$out" $CC_NE $EAX;;
+        lt)
+            emit_expr "$out" ${expr[2]}
+            x64_push_reg "$out" $EAX
+            emit_expr "$out" ${expr[1]}
+            x64_pop_reg "$out" $ECX
+            x64_cmp_reg_reg "$out" $EAX $ECX
+            cc_to_reg "$out" $CC_L $EAX;;
+        le)
+            emit_expr "$out" ${expr[2]}
+            x64_push_reg "$out" $EAX
+            emit_expr "$out" ${expr[1]}
+            x64_pop_reg "$out" $ECX
+            x64_cmp_reg_reg "$out" $EAX $ECX
+            cc_to_reg "$out" $CC_LE $EAX;;
+        gt)
+            emit_expr "$out" ${expr[2]}
+            x64_push_reg "$out" $EAX
+            emit_expr "$out" ${expr[1]}
+            x64_pop_reg "$out" $ECX
+            x64_cmp_reg_reg "$out" $EAX $ECX
+            cc_to_reg "$out" $CC_G $EAX;;
+        ge)
+            emit_expr "$out" ${expr[2]}
+            x64_push_reg "$out" $EAX
+            emit_expr "$out" ${expr[1]}
+            x64_pop_reg "$out" $ECX
+            x64_cmp_reg_reg "$out" $EAX $ECX
+            cc_to_reg "$out" $CC_GE $EAX;;
         *)
             fail "TODO(emit_expr): ${expr[@]}";;
     esac
