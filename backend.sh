@@ -42,6 +42,27 @@ x64_neg_reg() {
     modrm_reg "$1" 3 "$reg"
 }
 
+x64_shl_reg_cl() {
+    local -n out="$1"
+    local reg="$2"
+    out+="\xd3"
+    modrm_reg "$1" 4 "$reg"
+}
+
+x64_shr_reg_cl() {
+    local -n out="$1"
+    local reg="$2"
+    out+="\xd3"
+    modrm_reg "$1" 5 "$reg"
+}
+
+x64_sar_reg_cl() {
+    local -n out="$1"
+    local reg="$2"
+    out+="\xd3"
+    modrm_reg "$1" 7 "$reg"
+}
+
 x64_push_reg() {
     local out="$1" reg="$2"
     p8 "$1" $((0x50 + reg))
@@ -167,25 +188,37 @@ emit_expr() {
             x64_push_reg "$out" $EAX
             emit_expr "$out" ${expr[1]}
             x64_pop_reg "$out" $ECX
-            x64_sub_reg_reg "$out" $EAX 1;;
+            x64_sub_reg_reg "$out" $EAX $ECX;;
         xor)
             emit_expr "$out" ${expr[2]}
             x64_push_reg "$out" $EAX
             emit_expr "$out" ${expr[1]}
             x64_pop_reg "$out" $ECX
-            x64_xor_reg_reg "$out" $EAX 1;;
+            x64_xor_reg_reg "$out" $EAX $ECX;;
         band)
             emit_expr "$out" ${expr[2]}
             x64_push_reg "$out" $EAX
             emit_expr "$out" ${expr[1]}
             x64_pop_reg "$out" $ECX
-            x64_and_reg_reg "$out" $EAX 1;;
+            x64_and_reg_reg "$out" $EAX $ECX;;
         bor)
             emit_expr "$out" ${expr[2]}
             x64_push_reg "$out" $EAX
             emit_expr "$out" ${expr[1]}
             x64_pop_reg "$out" $ECX
-            x64_or_reg_reg "$out" $EAX 1;;
+            x64_or_reg_reg "$out" $EAX $ECX;;
+        shl)
+            emit_expr "$out" ${expr[2]}
+            x64_push_reg "$out" $EAX
+            emit_expr "$out" ${expr[1]}
+            x64_pop_reg "$out" $ECX
+            x64_shl_reg_cl "$out" $EAX;;
+        shr)
+            emit_expr "$out" ${expr[2]}
+            x64_push_reg "$out" $EAX
+            emit_expr "$out" ${expr[1]}
+            x64_pop_reg "$out" $ECX
+            x64_sar_reg_cl "$out" $EAX;;
         mul)
             emit_expr "$out" ${expr[2]}
             x64_push_reg "$out" $EAX
