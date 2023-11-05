@@ -11,6 +11,23 @@ declare -a tokdata=()
 # input line (index to `lines`) and offset within that line
 declare -ia tokline=() tokcol=()
 
+declare -A token_names=(
+    [lparen]="(" [rparen]=")"
+    [lbrace]="{" [rbrace]="}"
+    [lbrack]="[" [rbrack]="]"
+    [semi]=";"
+    [plus]="+"  [pluseq]="+="  [incr]="++"
+    [minus]="-" [minuseq]="-=" [decr]="--"
+    [star]="*"  [stareq]="*="
+    [div]="/"   [diveq]="/="
+    [mod]="%"   [modeq]="%="
+    [assn]="="  [eq]="=="
+    [lt]="<"    [le]="<="
+    [gt]=">"    [ge]=">="
+    [logical_not]="!"   [noteq]="!="
+    [bitwise_not]="~"
+)
+
 # token type begin end
 token() {
     local type="$1"
@@ -111,22 +128,28 @@ lexline() {
                             token ident $begin $i;;
                     esac
                 fi;;
-            "(") token lparen $begin $i;;
-            ")") token rparen $begin $i;;
-            "{") token lbrace $begin $i;;
-            "}") token rbrace $begin $i;;
-            ";") token semi $begin $i;;
-            "+") token plus $begin $i;;
-            "-") token minus $begin $i;;
-            "*") token star $begin $i;;
-            "/") token div $begin $i;;
-            "%") token mod $begin $i;;
-            "!") token logical_not $begin $i;;
-            "~") token bitwise_not $begin $i;;
             *)
-                error "stray '$c' in program"
-                show_range $curline $i $i
-                end_diagnostic;;
+
+                local -i longest=0
+                local longest_token=
+                for token_name in "${!token_names[@]}"; do
+                    local token="${token_names["$token_name"]}"
+                    if [[ "${line:i}" =~ ^"$token" ]]; then
+                        if (( ${#token} > longest )); then
+                            longest=${#token}
+                            longest_token=$token_name
+                        fi
+                    fi
+                done
+
+                if [ -z "$longest_token" ]; then
+                    error "stray '$c' in program"
+                    show_range $curline $i $i
+                    end_diagnostic
+                else
+                    i+=longest-1
+                    token $longest_token $begin $i
+                fi;;
         esac
     done
 }
