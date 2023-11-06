@@ -1,7 +1,11 @@
+STACK_ALIGNMENT=16
+
 EAX=0
 ECX=1
 EDX=2
 EBX=3
+ESP=4; RSP=4
+EBP=5; RBP=5
 
 CC_E=4
 CC_Z=4
@@ -19,6 +23,11 @@ modrm_reg() {
     p8 "$out" $((0xc0 + 8 * reg + rm))
 }
 
+leave() {
+    local -n out="$1"
+    out+="\xc9"
+}
+
 ret() {
     local -n out="$1"
     out+="\xc3"
@@ -34,6 +43,13 @@ mov_reg_reg() {
     local -n out="$1"
     local dst="$2" src="$3"
     out+="\x89"
+    modrm_reg "$1" "$src" "$dst"
+}
+
+movq_reg_reg() {
+    local -n out="$1"
+    local dst="$2" src="$3"
+    out+="\x48\x89"
     modrm_reg "$1" "$src" "$dst"
 }
 
@@ -110,6 +126,20 @@ sub_reg_reg() {
     modrm_reg "$1" "$src" "$dst"
 }
 
+subq_reg_imm() {
+    local -n out="$1"
+    local dst="$2" imm="$3"
+    if (( -128 <= imm && imm < 127 )); then
+        out+="\x48\x83"
+        modrm_reg "$1" 5 "$dst"
+        p8 "$1" "$imm"
+    else
+        out+="\x48\x81"
+        modrm_reg "$1" 5 "$dst"
+        p32 "$1" "$imm"
+    fi
+}
+
 xor_reg_reg() {
     local -n out="$1"
     local dst="$2" src="$3"
@@ -180,8 +210,44 @@ jcc_forward() {
 
 # AST traversal starts here
 
+# measure_stack stmt
+measure_stack() {
+    local -a stmt=(${ast[$1]})
+    case ${stmt[0]} in
+        compound)
+            local saved=$stack_used
+            local -i i
+            for (( i=1; i < ${#stmt[@]}; i++ )); do
+                measure_stack "${stmt[i]}"
+            done
+            stack_used=$saved;;
+        declare)
+            for (( i=1; i < ${#stmt[@]}; i++ )); do
+                local var_size=4
+                stack_used+=var_size
+                if (( stack_used > stack_max )); then
+                    stack_max=stack_used
+                fi
+            done;;
+    esac
+}
+
 emit_function() {
     local fname="$1"
+    local -i node=${functions[$fname]}
+
+    local -i stack_max=0
+    local -i stack_used=0
+
+    measure_stack $node
+
+    echo "$fname has $stack_max of local variables"
+
+    if (( stack_max % STACK_ALIGNMENT != 0 )); then
+        stack_max+=$((16 - stack_max % STACK_ALIGNMENT))
+    fi
+
+    echo "rounding up to $stack_max"
 
     local -i pos
     binlength pos "${sections[.text]}"
@@ -189,8 +255,17 @@ emit_function() {
     symbol_offsets["$fname"]=$pos
 
     local code=""
-    local -i node=${functions[$fname]}
+    stack_used=0
+    push_reg code $RBP
+    movq_reg_reg code $RBP $RSP
+
+    if (( stack_max )); then
+        subq_reg_imm code $RBP $stack_max
+    fi
+
     emit_statement code $node
+
+    leave code
     ret code
 
     sections[.text]+="$code"
@@ -210,6 +285,7 @@ emit_statement() {
             emit_expr "$out" "${stmt[1]}";;
         return)
             emit_expr "$out" "${stmt[1]}"
+            leave "$out"
             ret "$out";;
         nothing) ;;
         *)
