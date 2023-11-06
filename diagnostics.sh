@@ -36,8 +36,9 @@ internal_error() {
 # show_line filename:lineno begin len line comment
 # (0-indexed)
 show_line() {
-    local filename=$1 split
-    IFS=: split=($filename)
+    local filename=$1
+    local IFS=:
+    local split=($filename)
     local -i lineno="${split[-1]}"
 
     local -i begin=$2 len=$3
