@@ -216,6 +216,17 @@ setcc_reg() {
     modrm_reg 0 "$dst"
 }
 
+jmp_forward() {
+    local dist="$1"
+    if (( dist < 0x80 )); then
+        code+="\xeb"
+        p8 code $dist
+    else
+        code+="\xe9"
+        p32 code $dist
+    fi
+}
+
 jcc_forward() {
     local cc="$1" dist="$2"
     if (( dist < 0x80 )); then
@@ -553,6 +564,20 @@ emit_expr() {
             jcc_forward $CC_NZ $rhs_len
             code+="$rhs"
             cc_to_reg $CC_NZ $EAX;;
+        ternary)
+            nest
+                emit_expr ${expr[3]}
+            unnest; local no="$res" no_len=$reslen
+
+            nest
+                emit_expr ${expr[2]}
+                jmp_forward $no_len
+            unnest; local yes="$res" yes_len=$reslen
+
+            emit_expr ${expr[1]}
+            test_reg_reg $EAX $EAX
+            jcc_forward $CC_Z $yes_len
+            code+="$yes$no";;
         *)
             fail "TODO(emit_expr): ${expr[@]}";;
     esac
