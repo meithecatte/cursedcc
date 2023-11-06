@@ -300,8 +300,7 @@ parse_statement() {
     case "${toktype[pos]}" in
     kw:return)
         pos+=1
-        parse_expr
-        local retval=$res
+        parse_expr; local retval=$res
         parse_semi
 
         mknode "return $retval";;
@@ -335,8 +334,7 @@ parse_declaration() {
 
         if peek assn; then
             expect assn
-            parse_expr
-            local value=$res
+            parse_assignment_expr; local value=$res
             mknode "assn $name $value"
             vars+=($res)
         else
@@ -390,8 +388,7 @@ parse_primary_expr() {
         mknode "var $expect_tokdata $ident_pos";;
     lparen)
         expect lparen
-        parse_expr
-        local result=$res
+        parse_expr; local result=$res
         expect rparen
         res=$result;;
     *)
@@ -415,65 +412,102 @@ parse_unary_expr() {
     esac
 }
 
-declare prev_level=parse_unary_expr
+finish_unary_expr() {
+    :
+}
+
+declare prev_level=unary_expr
 
 # left_level this [tok node]...
 left_level() {
     local this="$1"; shift
-    local code="$this() { $prev_level; while has_tokens; do local lhs=\$res; "
-    code+=$'case "${toktype[pos]}" in\n'
+    local parse_code="parse_$this() { parse_$prev_level; "
+    local finish_code="finish_$this() { finish_$prev_level; "
+    local code='while has_tokens; do local lhs=$res; case "${toktype[pos]}" in '
     while (( $# >= 2 )); do
-        code+=$"$1) pos+=1; $prev_level; mknode \"$2 \$lhs \$res\";; "
+        code+=$"$1) pos+=1; parse_$prev_level; mknode \"$2 \$lhs \$res\";; "
         shift 2
     done
-    code+=$'*) break;;\n'
-    code+=$'esac\n'
-    code+=$'done; }'
-    eval "$code"
+    code+=$'*) break;; esac; done; }'
+    eval "$parse_code$code"
+    eval "$finish_code$code"
     prev_level=$this
 }
 
 # 6.5.5 Multiplicative operators
-left_level parse_mult_expr \
+left_level mult_expr \
     star mul    div  div    mod  mod
 
 # 6.5.6 Additive operators
-left_level parse_add_expr \
+left_level add_expr \
     plus add    minus sub
 
 # 6.5.7 Bitwise shift operators
-left_level parse_shift_expr \
+left_level shift_expr \
     shl shl     shr shr
 
 # 6.5.8 Relational operators
-left_level parse_relational_expr \
+left_level relational_expr \
     lt lt       gt gt \
     le le       ge ge
 
 # 6.5.9 Equality operators
-left_level parse_equality_expr \
+left_level equality_expr \
     eq eq       noteq noteq
 
 # 6.5.10 Bitwise AND operator
-left_level parse_and_expr \
+left_level and_expr \
     band band
 
 # 6.5.11 Bitwise exclusive OR operator
-left_level parse_xor_expr \
+left_level xor_expr \
     xor xor
 
 # 6.5.12 Bitwise inclusive OR operator
-left_level parse_or_expr \
+left_level or_expr \
     bor bor
 
 # 6.5.13 Logical AND operator
-left_level parse_land_expr \
+left_level land_expr \
     land land
 
 # 6.5.14 Logical OR operator
-left_level parse_lor_expr \
+left_level lor_expr \
     lor lor
 
+# 6.5.15 Conditional operator
+parse_conditional_expr() {
+    parse_unary_expr
+    finish_conditional_expr
+}
+
+finish_conditional_expr() {
+    finish_lor_expr; local cond=$res
+
+    if peek question; then
+        expect question
+        parse_expr; local yes=$res
+        expect colon
+        parse_conditional_expr; local no=$res
+        mknode "ternary $cond $yes $no"
+    fi
+}
+
+# 6.5.17 Assignment operators
+parse_assignment_expr() {
+    parse_unary_expr
+    if ! has_tokens; then return; fi
+
+    case "${toktype[pos]}" in
+    assn|pluseq|minuseq|stareq|diveq|modeq|shleq|shreq|bandeq|boreq|xoreq)
+        local lhs=$res op="${toktype[pos]}"
+        pos+=1
+        parse_assignment_expr; local rhs=$res
+        mknode "$op $lhs $rhs";;
+    *)  finish_conditional_expr;;
+    esac
+}
+
 parse_expr() {
-    parse_lor_expr
+    parse_assignment_expr
 }
