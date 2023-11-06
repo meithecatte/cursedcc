@@ -304,13 +304,12 @@ parse_statement() {
         parse_semi
 
         mknode "return $retval";;
+    semi)
+        pos+=1
+        mknode "nothing";;
     *)
-        error "statement not recognized"
-        show_token $pos
-        end_diagnostic
-
-        recover_semi
-        return 1;;
+        parse_expr
+        mknode "expr $res";;
     esac
 }
 
