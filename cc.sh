@@ -60,6 +60,10 @@ for function in "${!functions[@]}"; do
     emit_function "$function"
 done
 
+if (( error_count > 0 )); then
+    exit 1
+fi
+
 if (( objonly == 1 )); then
     if [ -z "${outfile-}" ]; then
         objfile="${filename%.c}.o"

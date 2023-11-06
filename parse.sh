@@ -241,6 +241,7 @@ parse_function() {
     functions[$name]=$res
 }
 
+# 6.8.2 Compound statement
 parse_compound() {
     local -i lbrace_pos=$pos
     expect lbrace
@@ -254,8 +255,13 @@ parse_compound() {
             return 1
         fi
 
-        parse_statement
-        stmts+=("$res")
+        if peek kw:int; then
+            parse_declaration
+            stmts+=("$res")
+        else
+            parse_statement
+            stmts+=("$res")
+        fi
     done
     expect rbrace
 
@@ -283,7 +289,6 @@ recover_semi() {
     done
 }
 
-# parse_statement
 parse_statement() {
     if ! has_tokens; then
         error "expected statement, got EOF"
@@ -308,6 +313,50 @@ parse_statement() {
         recover_semi
         return 1;;
     esac
+}
+
+# 6.7 Declarations
+parse_declaration() {
+    local type_pos=$pos
+    expect kw:int
+    if peek semi; then
+        warning "useless type name in empty declaration"
+        show_token $pos
+        end_diagnostic
+        mknode "nothing"
+        return
+    fi
+
+    local vars=()
+
+    while :; do
+        expect ident
+        local name="$expect_tokdata"
+
+        if peek assn; then
+            expect assn
+            parse_expr
+            local value=$res
+            mknode "assn $name $value"
+            vars+=($res)
+        else
+            mknode "var $name"
+            vars+=($res)
+        fi
+
+        case "${toktype[pos]}" in
+        comma) pos+=1; continue;;
+        semi)  pos+=1; break;;
+        *)
+            spell_token "${toktype[pos]}"
+            error "expected \`,\` or \`;\`, got ${spelled}"
+            show_token $pos "expected \`,\` or \`;\`"
+            end_diagnostic
+            return 1;;
+        esac
+    done
+
+    mknode "declare ${vars[*]}"
 }
 
 check_expr_start() {
@@ -335,6 +384,10 @@ parse_primary_expr() {
     literal)
         expect literal
         mknode "literal $expect_tokdata";;
+    ident)
+        local ident_pos=$pos
+        expect ident
+        mknode "var $expect_tokdata $ident_pos";;
     lparen)
         expect lparen
         parse_expr
