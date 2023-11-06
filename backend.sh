@@ -353,14 +353,14 @@ emit_var_write() {
 }
 
 emit_lvalue_write() {
-    local out="$1" lvalue="$2" reg="$3"
+    local out="$1" lvalue="$2" reg="$3" assn_pos="$4"
     local -a expr=(${ast[lvalue]})
     case ${expr[0]} in
     var)
         local name="${expr[1]}" pos="${expr[2]}"
         emit_var_write "$out" "$name" "$pos" "$reg";;
     *)  error "invalid left-hand side of assignment"
-        # TODO: location tracking
+        show_token $assn_pos
         end_diagnostic;;
     esac
 }
@@ -422,7 +422,7 @@ emit_expr() {
             emit_var_read "$out" "$name" "$pos" $EAX;;
         assn)
             emit_expr "$out" ${expr[2]}
-            emit_lvalue_write "$out" ${expr[1]} $EAX;;
+            emit_lvalue_write "$out" ${expr[1]} $EAX ${expr[3]};;
         bnot)
             emit_expr "$out" ${expr[1]}
             not_reg "$out" $EAX;;

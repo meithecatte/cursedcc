@@ -500,10 +500,10 @@ parse_assignment_expr() {
 
     case "${toktype[pos]}" in
     assn|pluseq|minuseq|stareq|diveq|modeq|shleq|shreq|bandeq|boreq|xoreq)
-        local lhs=$res op="${toktype[pos]}"
+        local lhs=$res op="${toktype[pos]}" assn_pos=$pos
         pos+=1
         parse_assignment_expr; local rhs=$res
-        mknode "$op $lhs $rhs";;
+        mknode "$op $lhs $rhs $assn_pos";;
     *)  finish_conditional_expr;;
     esac
 }
