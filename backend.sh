@@ -23,6 +23,17 @@ modrm_reg() {
     p8 "$out" $((0xc0 + 8 * reg + rm))
 }
 
+modrm_rbpoff() {
+    local out="$1" reg="$2" offset="$3"
+    if (( -128 <= offset && offset <= 127 )); then
+        p8 "$out" $((0x45 + 8 * reg))
+        p8 "$out" $offset
+    else
+        p8 "$out" $((0x85 + 8 * reg))
+        p32 "$out" $offset
+    fi
+}
+
 leave() {
     local -n out="$1"
     out+="\xc9"
@@ -44,6 +55,20 @@ mov_reg_reg() {
     local dst="$2" src="$3"
     out+="\x89"
     modrm_reg "$1" "$src" "$dst"
+}
+
+mov_rbpoff_reg() {
+    local -n out="$1"
+    local offset="$2" src="$3"
+    out+="\x89"
+    modrm_rbpoff "$1" "$src" "$offset"
+}
+
+mov_reg_rbpoff() {
+    local -n out="$1"
+    local dst="$2" offset="$3"
+    out+="\x8b"
+    modrm_rbpoff "$1" "$dst" "$offset"
 }
 
 movq_reg_reg() {
@@ -129,7 +154,7 @@ sub_reg_reg() {
 subq_reg_imm() {
     local -n out="$1"
     local dst="$2" imm="$3"
-    if (( -128 <= imm && imm < 127 )); then
+    if (( -128 <= imm && imm <= 127 )); then
         out+="\x48\x83"
         modrm_reg "$1" 5 "$dst"
         p8 "$1" "$imm"
@@ -215,20 +240,22 @@ measure_stack() {
     local -a stmt=(${ast[$1]})
     case ${stmt[0]} in
         compound)
-            local saved=$stack_used
+            local -i stack_used=$stack_used
             local -i i
             for (( i=1; i < ${#stmt[@]}; i++ )); do
                 measure_stack "${stmt[i]}"
-            done
-            stack_used=$saved;;
+            done;;
         declare)
+            local -i i
             for (( i=1; i < ${#stmt[@]}; i++ )); do
-                local var_size=4
+                local -i var_size=4
                 stack_used+=var_size
                 if (( stack_used > stack_max )); then
                     stack_max=stack_used
                 fi
             done;;
+        expr|return|nothing) ;;
+        *)  fail "TODO(measure_stack): ${stmt[0]}";;
     esac
 }
 
@@ -241,7 +268,7 @@ emit_function() {
 
     measure_stack $node
 
-    echo "$fname has $stack_max of local variables"
+    echo "$fname has $stack_max bytes of local variables"
 
     if (( stack_max % STACK_ALIGNMENT != 0 )); then
         stack_max+=$((16 - stack_max % STACK_ALIGNMENT))
@@ -255,15 +282,24 @@ emit_function() {
     symbol_offsets["$fname"]=$pos
 
     local code=""
-    stack_used=0
     push_reg code $RBP
     movq_reg_reg code $RBP $RSP
 
     if (( stack_max )); then
-        subq_reg_imm code $RBP $stack_max
+        subq_reg_imm code $RSP $stack_max
     fi
 
+    # name -> offset from rbp
+    local -A varmap=()
+    # name -> declaring token (the ones that can be shadowed are not included)
+    local -A vars_in_block=()
+
     emit_statement code $node
+
+    # by default, main should return 0
+    if [[ "$fname" == "main" ]]; then
+        xor_reg_reg code $EAX $EAX
+    fi
 
     leave code
     ret code
@@ -271,12 +307,73 @@ emit_function() {
     sections[.text]+="$code"
 }
 
+emit_declare_var() {
+    local name="$1" pos="$2"
+    if [ -n "${vars_in_block[$name]-}" ]; then
+        error "redefinition of \`$name\`"
+        show_token ${vars_in_block[$name]} "\`$name\` first defined here"
+        show_token $pos "\`$name\` redefined here"
+        end_diagnostic
+    fi
+
+    vars_in_block[$name]=$pos
+    local -i var_size=4
+    local -i stack_offset=$stack_used
+    stack_used+=var_size
+    varmap[$name]=$((stack_offset - stack_max))
+
+    if (( stack_offset >= stack_max )); then
+        internal_error "insufficient stack frame allocated"
+        show_token $pos "stack offset $stack_offset with stack frame $stack_max"
+        end_diagnostic
+        exit 1
+    fi
+}
+
+check_var_exists() {
+    local name="$1" pos="$2"
+    if [ -z "${varmap[$name]-}" ]; then
+        error "cannot find value \`$name\` in this scope"
+        show_token $pos "not found in this scope"
+        end_diagnostic
+        return 1
+    fi
+}
+
+emit_var_read() {
+    local out="$1" name="$2" pos="$3" reg="$4"
+    check_var_exists "$name" "$pos" || return
+    mov_reg_rbpoff "$out" "$reg" "${varmap[$name]}"
+}
+
+emit_var_write() {
+    local out="$1" name="$2" pos="$3" reg="$4"
+    check_var_exists "$name" "$pos" || return
+    mov_rbpoff_reg "$out" "${varmap[$name]}" "$reg"
+}
+
 emit_statement() {
     local out="$1"
     local node="$2"
     local -a stmt=(${ast[node]})
     case ${stmt[0]} in
+        declare)
+            local -i i
+            for (( i=1; i < ${#stmt[@]}; i++ )); do
+                local node=${stmt[i]}
+                local -a decl=(${ast[node]})
+                local name=${decl[1]} pos=${decl[2]} value=${decl[3]-}
+                emit_declare_var $name $pos
+                if [ -n "$value" ]; then
+                    emit_expr $out $value
+                    emit_var_write "$out" "$name" "$pos" $EAX
+                fi
+            done;;
         compound)
+            # allow shadowing
+            local -i stack_used=$stack_used
+            local -A vars_in_block=()
+
             local -i i
             for (( i=1; i < ${#stmt[@]}; i++ )); do
                 emit_statement "$out" "${stmt[i]}"
@@ -307,6 +404,9 @@ emit_expr() {
     case ${expr[0]} in
         literal)
             mov_reg_imm "$out" $EAX ${expr[1]};;
+        var)
+            local name="${expr[1]}" pos="${expr[2]}"
+            emit_var_read "$out" "$name" "$pos" $EAX;;
         bnot)
             emit_expr "$out" ${expr[1]}
             not_reg "$out" $EAX;;

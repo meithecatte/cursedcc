@@ -328,16 +328,17 @@ parse_declaration() {
     local vars=()
 
     while :; do
+        local ident_pos=$pos
         expect ident
         local name="$expect_tokdata"
 
         if peek assn; then
             expect assn
             parse_assignment_expr; local value=$res
-            mknode "assn $name $value"
+            mknode "declare_var $name $ident_pos $value"
             vars+=($res)
         else
-            mknode "var $name"
+            mknode "declare_var $name $ident_pos"
             vars+=($res)
         fi
 

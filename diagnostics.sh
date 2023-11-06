@@ -27,6 +27,12 @@ error() {
     echo "${RED_BOLD}error${FG_DEFAULT}: $@${RESET}" >&2
 }
 
+internal_error() {
+    error_count+=1
+    diagnostic_color="${RED_BOLD}"
+    echo "${RED_BOLD}internal compiler error${FG_DEFAULT}: $@${RESET}" >&2
+}
+
 # show_line filename:lineno begin len line comment
 # (0-indexed)
 show_line() {
