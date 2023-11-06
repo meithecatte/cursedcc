@@ -206,9 +206,12 @@ emit_statement() {
             for (( i=1; i < ${#stmt[@]}; i++ )); do
                 emit_statement "$out" "${stmt[i]}"
             done;;
+        expr)
+            emit_expr "$out" "${stmt[1]}";;
         return)
             emit_expr "$out" "${stmt[1]}"
             ret "$out";;
+        nothing) ;;
         *)
             fail "TODO(emit_statement): ${stmt[@]}";;
     esac
