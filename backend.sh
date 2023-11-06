@@ -16,220 +16,215 @@ CC_GE=13
 CC_LE=14
 CC_G=15
 
+# The code generation strategy for everything involving jumps requires
+# generating the code being jumped over to a separate variable, so that its
+# size can later be measured.
+declare -a code_arr=("")
+declare -i code_cur=0
+declare -n code="code_arr[code_cur]"
+
+nest() {
+    code_cur+=1
+    code_arr[code_cur]=""
+}
+
+# sets res, reslen
+unnest() {
+    res="$code"
+    binlength reslen "$res"
+    unset code_arr[code_cur]
+    code_cur=code_cur-1
+}
+
 modrm_reg() {
     # reg - register field
     # rm - r/m field (register index)
-    local out="$1" reg="$2" rm="$3"
-    p8 "$out" $((0xc0 + 8 * reg + rm))
+    local reg="$1" rm="$2"
+    p8 code $((0xc0 + 8 * reg + rm))
 }
 
 modrm_rbpoff() {
-    local out="$1" reg="$2" offset="$3"
+    local reg="$1" offset="$2"
     if (( -128 <= offset && offset <= 127 )); then
-        p8 "$out" $((0x45 + 8 * reg))
-        p8 "$out" $offset
+        p8 code $((0x45 + 8 * reg))
+        p8 code $offset
     else
-        p8 "$out" $((0x85 + 8 * reg))
-        p32 "$out" $offset
+        p8 code $((0x85 + 8 * reg))
+        p32 code $offset
     fi
 }
 
 leave() {
-    local -n out="$1"
-    out+="\xc9"
+    code+="\xc9"
 }
 
 ret() {
-    local -n out="$1"
-    out+="\xc3"
+    code+="\xc3"
 }
 
 mov_reg_imm() {
-    local out="$1" reg="$2" imm="$3"
-    p8 "$out" $((0xb8 + reg))
-    p32 "$out" "$imm"
+    local reg="$1" imm="$2"
+    p8 code $((0xb8 + reg))
+    p32 code "$imm"
 }
 
 mov_reg_reg() {
-    local -n out="$1"
-    local dst="$2" src="$3"
-    out+="\x89"
-    modrm_reg "$1" "$src" "$dst"
+    local dst="$1" src="$2"
+    code+="\x89"
+    modrm_reg "$src" "$dst"
 }
 
 mov_rbpoff_reg() {
-    local -n out="$1"
-    local offset="$2" src="$3"
-    out+="\x89"
-    modrm_rbpoff "$1" "$src" "$offset"
+    local offset="$1" src="$2"
+    code+="\x89"
+    modrm_rbpoff "$src" "$offset"
 }
 
 mov_reg_rbpoff() {
-    local -n out="$1"
-    local dst="$2" offset="$3"
-    out+="\x8b"
-    modrm_rbpoff "$1" "$dst" "$offset"
+    local dst="$1" offset="$2"
+    code+="\x8b"
+    modrm_rbpoff "$dst" "$offset"
 }
 
 movq_reg_reg() {
-    local -n out="$1"
-    local dst="$2" src="$3"
-    out+="\x48\x89"
-    modrm_reg "$1" "$src" "$dst"
+    local dst="$1" src="$2"
+    code+="\x48\x89"
+    modrm_reg "$src" "$dst"
 }
 
 not_reg() {
-    local -n out="$1"
-    local reg="$2"
-    out+="\xf7"
-    modrm_reg "$1" 2 "$reg"
+    local reg="$1"
+    code+="\xf7"
+    modrm_reg 2 "$reg"
 }
 
 neg_reg() {
-    local -n out="$1"
-    local reg="$2"
-    out+="\xf7"
-    modrm_reg "$1" 3 "$reg"
+    local reg="$1"
+    code+="\xf7"
+    modrm_reg 3 "$reg"
 }
 
 shl_reg_cl() {
-    local -n out="$1"
-    local reg="$2"
-    out+="\xd3"
-    modrm_reg "$1" 4 "$reg"
+    local reg="$1"
+    code+="\xd3"
+    modrm_reg 4 "$reg"
 }
 
 shr_reg_cl() {
-    local -n out="$1"
-    local reg="$2"
-    out+="\xd3"
-    modrm_reg "$1" 5 "$reg"
+    local reg="$1"
+    code+="\xd3"
+    modrm_reg 5 "$reg"
 }
 
 sar_reg_cl() {
-    local -n out="$1"
-    local reg="$2"
-    out+="\xd3"
-    modrm_reg "$1" 7 "$reg"
+    local reg="$1"
+    code+="\xd3"
+    modrm_reg 7 "$reg"
 }
 
 push_reg() {
-    local out="$1" reg="$2"
-    p8 "$1" $((0x50 + reg))
+    local reg="$1"
+    p8 code $((0x50 + reg))
 }
 
 pop_reg() {
-    local out="$1" reg="$2"
-    p8 "$1" $((0x58 + reg))
+    local reg="$1"
+    p8 code $((0x58 + reg))
 }
 
 add_reg_reg() {
-    local -n out="$1"
-    local dst="$2" src="$3"
-    out+="\x01"
-    modrm_reg "$1" "$src" "$dst"
+    local dst="$1" src="$2"
+    code+="\x01"
+    modrm_reg "$src" "$dst"
 }
 
 or_reg_reg() {
-    local -n out="$1"
-    local dst="$2" src="$3"
-    out+="\x09"
-    modrm_reg "$1" "$src" "$dst"
+    local dst="$1" src="$2"
+    code+="\x09"
+    modrm_reg "$src" "$dst"
 }
 
 and_reg_reg() {
-    local -n out="$1"
-    local dst="$2" src="$3"
-    out+="\x21"
-    modrm_reg "$1" "$src" "$dst"
+    local dst="$1" src="$2"
+    code+="\x21"
+    modrm_reg "$src" "$dst"
 }
 
 sub_reg_reg() {
-    local -n out="$1"
-    local dst="$2" src="$3"
-    out+="\x29"
-    modrm_reg "$1" "$src" "$dst"
+    local dst="$1" src="$2"
+    code+="\x29"
+    modrm_reg "$src" "$dst"
 }
 
 subq_reg_imm() {
-    local -n out="$1"
-    local dst="$2" imm="$3"
+    local dst="$1" imm="$2"
     if (( -128 <= imm && imm <= 127 )); then
-        out+="\x48\x83"
-        modrm_reg "$1" 5 "$dst"
-        p8 "$1" "$imm"
+        code+="\x48\x83"
+        modrm_reg 5 "$dst"
+        p8 code "$imm"
     else
-        out+="\x48\x81"
-        modrm_reg "$1" 5 "$dst"
-        p32 "$1" "$imm"
+        code+="\x48\x81"
+        modrm_reg 5 "$dst"
+        p32 code "$imm"
     fi
 }
 
 xor_reg_reg() {
-    local -n out="$1"
-    local dst="$2" src="$3"
-    out+="\x31"
-    modrm_reg "$1" "$src" "$dst"
+    local dst="$1" src="$2"
+    code+="\x31"
+    modrm_reg "$src" "$dst"
 }
 
 cmp_reg_reg() {
-    local -n out="$1"
-    local dst="$2" src="$3"
-    out+="\x39"
-    modrm_reg "$1" "$src" "$dst"
+    local dst="$1" src="$2"
+    code+="\x39"
+    modrm_reg "$src" "$dst"
 }
 
 test_reg_reg() {
-    local -n out="$1"
-    local dst="$2" src="$3"
-    out+="\x85"
-    modrm_reg "$1" "$src" "$dst"
+    local dst="$1" src="$2"
+    code+="\x85"
+    modrm_reg "$src" "$dst"
 }
 
 imul_reg_reg() {
-    local -n out="$1"
-    local dst="$2" src="$3"
-    out+="\x0f\xaf"
-    modrm_reg "$1" "$dst" "$src"
+    local dst="$1" src="$2"
+    code+="\x0f\xaf"
+    modrm_reg "$dst" "$src"
 }
 
 cdq() {
-    local -n out="$1"
-    out+="\x99"
+    code+="\x99"
 }
 
 idiv_reg() {
-    local -n out="$1"
-    local reg="$2"
-    out+="\xf7"
-    modrm_reg "$1" 7 "$reg"
+    local reg="$1"
+    code+="\xf7"
+    modrm_reg 7 "$reg"
 }
 
 movzxb_reg_reg() {
-    local -n out="$1"
-    local dst="$2" src="$3"
-    out+="\x0f\xb6"
-    modrm_reg "$1" "$src" "$dst"
+    local dst="$1" src="$2"
+    code+="\x0f\xb6"
+    modrm_reg "$src" "$dst"
 }
 
 setcc_reg() {
-    local -n out="$1"
-    local cc="$2" dst="$3"
-    out+="\x0f"
-    p8 "$1" $((0x90 + cc))
-    modrm_reg "$1" 0 "$dst"
+    local cc="$1" dst="$2"
+    code+="\x0f"
+    p8 code $((0x90 + cc))
+    modrm_reg 0 "$dst"
 }
 
 jcc_forward() {
-    local -n out="$1"
-    local cc="$2" dist="$3"
+    local cc="$1" dist="$2"
     if (( dist < 0x80 )); then
-        p8 "$1" $((0x70 + cc))
-        p8 "$1" $dist
+        p8 code $((0x70 + cc))
+        p8 code $dist
     else
-        out+="\x0f"
-        p8 "$1" $((0x80 + cc))
-        p32 "$1" $dist
+        code+="\x0f"
+        p8 code $((0x80 + cc))
+        p32 code $dist
     fi
 }
 
@@ -281,12 +276,12 @@ emit_function() {
     symbol_sections["$fname"]=.text
     symbol_offsets["$fname"]=$pos
 
-    local code=""
-    push_reg code $RBP
-    movq_reg_reg code $RBP $RSP
+    code=""
+    push_reg $RBP
+    movq_reg_reg $RBP $RSP
 
     if (( stack_max )); then
-        subq_reg_imm code $RSP $stack_max
+        subq_reg_imm $RSP $stack_max
     fi
 
     # name -> offset from rbp
@@ -294,15 +289,15 @@ emit_function() {
     # name -> declaring token (the ones that can be shadowed are not included)
     local -A vars_in_block=()
 
-    emit_statement code $node
+    emit_statement $node
 
     # by default, main should return 0
     if [[ "$fname" == "main" ]]; then
-        xor_reg_reg code $EAX $EAX
+        xor_reg_reg $EAX $EAX
     fi
 
-    leave code
-    ret code
+    leave
+    ret
 
     sections[.text]+="$code"
 }
@@ -341,24 +336,24 @@ check_var_exists() {
 }
 
 emit_var_read() {
-    local out="$1" name="$2" pos="$3" reg="$4"
+    local name="$1" pos="$2" reg="$3"
     check_var_exists "$name" "$pos" || return
-    mov_reg_rbpoff "$out" "$reg" "${varmap[$name]}"
+    mov_reg_rbpoff "$reg" "${varmap[$name]}"
 }
 
 emit_var_write() {
-    local out="$1" name="$2" pos="$3" reg="$4"
+    local name="$1" pos="$2" reg="$3"
     check_var_exists "$name" "$pos" || return
-    mov_rbpoff_reg "$out" "${varmap[$name]}" "$reg"
+    mov_rbpoff_reg "${varmap[$name]}" "$reg"
 }
 
 emit_lvalue_write() {
-    local out="$1" lvalue="$2" reg="$3" assn_pos="$4"
+    local lvalue="$1" reg="$2" assn_pos="$3"
     local -a expr=(${ast[lvalue]})
     case ${expr[0]} in
     var)
         local name="${expr[1]}" pos="${expr[2]}"
-        emit_var_write "$out" "$name" "$pos" "$reg";;
+        emit_var_write "$name" "$pos" "$reg";;
     *)  error "invalid left-hand side of assignment"
         show_token $assn_pos
         end_diagnostic;;
@@ -366,9 +361,7 @@ emit_lvalue_write() {
 }
 
 emit_statement() {
-    local out="$1"
-    local node="$2"
-    local -a stmt=(${ast[node]})
+    local -a stmt=(${ast[$1]})
     case ${stmt[0]} in
         declare)
             local -i i
@@ -378,8 +371,8 @@ emit_statement() {
                 local name=${decl[1]} pos=${decl[2]} value=${decl[3]-}
                 emit_declare_var $name $pos
                 if [ -n "$value" ]; then
-                    emit_expr $out $value
-                    emit_var_write "$out" "$name" "$pos" $EAX
+                    emit_expr $value
+                    emit_var_write $name $pos $EAX
                 fi
             done;;
         compound)
@@ -389,14 +382,14 @@ emit_statement() {
 
             local -i i
             for (( i=1; i < ${#stmt[@]}; i++ )); do
-                emit_statement "$out" "${stmt[i]}"
+                emit_statement ${stmt[i]}
             done;;
         expr)
-            emit_expr "$out" "${stmt[1]}";;
+            emit_expr ${stmt[1]};;
         return)
-            emit_expr "$out" "${stmt[1]}"
-            leave "$out"
-            ret "$out";;
+            emit_expr ${stmt[1]}
+            leave
+            ret;;
         nothing) ;;
         *)
             fail "TODO(emit_statement): ${stmt[@]}";;
@@ -404,168 +397,162 @@ emit_statement() {
 }
 
 cc_to_reg() {
-    local out="$1" cc="$2" reg="$3"
-    setcc_reg $out $cc $reg
-    movzxb_reg_reg $out $reg $reg
+    local cc="$1" reg="$2"
+    setcc_reg $cc $reg
+    movzxb_reg_reg $reg $reg
 }
 
 # emits code that puts the result in EAX
 emit_expr() {
-    local out="$1"
-    local node="$2"
-    local -a expr=(${ast[node]})
+    local -a expr=(${ast[$1]})
     case ${expr[0]} in
         literal)
-            mov_reg_imm "$out" $EAX ${expr[1]};;
+            mov_reg_imm $EAX ${expr[1]};;
         var)
             local name="${expr[1]}" pos="${expr[2]}"
-            emit_var_read "$out" "$name" "$pos" $EAX;;
+            emit_var_read $name $pos $EAX;;
         assn)
-            emit_expr "$out" ${expr[2]}
-            emit_lvalue_write "$out" ${expr[1]} $EAX ${expr[3]};;
+            emit_expr ${expr[2]}
+            emit_lvalue_write ${expr[1]} $EAX ${expr[3]};;
         bnot)
-            emit_expr "$out" ${expr[1]}
-            not_reg "$out" $EAX;;
+            emit_expr ${expr[1]}
+            not_reg $EAX;;
         negate)
-            emit_expr "$out" ${expr[1]}
-            neg_reg "$out" $EAX;;
+            emit_expr ${expr[1]}
+            neg_reg $EAX;;
         unary_plus)
-            emit_expr "$out" ${expr[1]};;
+            emit_expr ${expr[1]};;
         add)
-            emit_expr "$out" ${expr[1]}
-            push_reg "$out" $EAX
-            emit_expr "$out" ${expr[2]}
-            pop_reg "$out" $ECX
-            add_reg_reg "$out" $EAX $ECX;;
+            emit_expr ${expr[1]}
+            push_reg $EAX
+            emit_expr ${expr[2]}
+            pop_reg $ECX
+            add_reg_reg $EAX $ECX;;
         sub)
-            emit_expr "$out" ${expr[2]}
-            push_reg "$out" $EAX
-            emit_expr "$out" ${expr[1]}
-            pop_reg "$out" $ECX
-            sub_reg_reg "$out" $EAX $ECX;;
+            emit_expr ${expr[2]}
+            push_reg $EAX
+            emit_expr ${expr[1]}
+            pop_reg $ECX
+            sub_reg_reg $EAX $ECX;;
         xor)
-            emit_expr "$out" ${expr[2]}
-            push_reg "$out" $EAX
-            emit_expr "$out" ${expr[1]}
-            pop_reg "$out" $ECX
-            xor_reg_reg "$out" $EAX $ECX;;
+            emit_expr ${expr[2]}
+            push_reg $EAX
+            emit_expr ${expr[1]}
+            pop_reg $ECX
+            xor_reg_reg $EAX $ECX;;
         band)
-            emit_expr "$out" ${expr[2]}
-            push_reg "$out" $EAX
-            emit_expr "$out" ${expr[1]}
-            pop_reg "$out" $ECX
-            and_reg_reg "$out" $EAX $ECX;;
+            emit_expr ${expr[2]}
+            push_reg $EAX
+            emit_expr ${expr[1]}
+            pop_reg $ECX
+            and_reg_reg $EAX $ECX;;
         bor)
-            emit_expr "$out" ${expr[2]}
-            push_reg "$out" $EAX
-            emit_expr "$out" ${expr[1]}
-            pop_reg "$out" $ECX
-            or_reg_reg "$out" $EAX $ECX;;
+            emit_expr ${expr[2]}
+            push_reg $EAX
+            emit_expr ${expr[1]}
+            pop_reg $ECX
+            or_reg_reg $EAX $ECX;;
         shl)
-            emit_expr "$out" ${expr[2]}
-            push_reg "$out" $EAX
-            emit_expr "$out" ${expr[1]}
-            pop_reg "$out" $ECX
-            shl_reg_cl "$out" $EAX;;
+            emit_expr ${expr[2]}
+            push_reg $EAX
+            emit_expr ${expr[1]}
+            pop_reg $ECX
+            shl_reg_cl $EAX;;
         shr)
-            emit_expr "$out" ${expr[2]}
-            push_reg "$out" $EAX
-            emit_expr "$out" ${expr[1]}
-            pop_reg "$out" $ECX
-            sar_reg_cl "$out" $EAX;;
+            emit_expr ${expr[2]}
+            push_reg $EAX
+            emit_expr ${expr[1]}
+            pop_reg $ECX
+            sar_reg_cl $EAX;;
         mul)
-            emit_expr "$out" ${expr[2]}
-            push_reg "$out" $EAX
-            emit_expr "$out" ${expr[1]}
-            pop_reg "$out" $ECX
-            imul_reg_reg "$out" $EAX 1;;
+            emit_expr ${expr[2]}
+            push_reg $EAX
+            emit_expr ${expr[1]}
+            pop_reg $ECX
+            imul_reg_reg $EAX 1;;
         div)
-            emit_expr "$out" ${expr[2]}
-            push_reg "$out" $EAX
-            emit_expr "$out" ${expr[1]}
-            pop_reg "$out" $ECX
-            cdq "$out"
-            idiv_reg "$out" $ECX;;
+            emit_expr ${expr[2]}
+            push_reg $EAX
+            emit_expr ${expr[1]}
+            pop_reg $ECX
+            cdq
+            idiv_reg $ECX;;
         mod)
-            emit_expr "$out" ${expr[2]}
-            push_reg "$out" $EAX
-            emit_expr "$out" ${expr[1]}
-            pop_reg "$out" $ECX
-            cdq "$out"
-            idiv_reg "$out" $ECX
-            mov_reg_reg "$out" $EAX $EDX;;
+            emit_expr ${expr[2]}
+            push_reg $EAX
+            emit_expr ${expr[1]}
+            pop_reg $ECX
+            cdq
+            idiv_reg $ECX
+            mov_reg_reg $EAX $EDX;;
         eq)
-            emit_expr "$out" ${expr[2]}
-            push_reg "$out" $EAX
-            emit_expr "$out" ${expr[1]}
-            pop_reg "$out" $ECX
-            cmp_reg_reg "$out" $EAX $ECX
-            cc_to_reg "$out" $CC_E $EAX;;
+            emit_expr ${expr[2]}
+            push_reg $EAX
+            emit_expr ${expr[1]}
+            pop_reg $ECX
+            cmp_reg_reg $EAX $ECX
+            cc_to_reg $CC_E $EAX;;
         noteq)
-            emit_expr "$out" ${expr[2]}
-            push_reg "$out" $EAX
-            emit_expr "$out" ${expr[1]}
-            pop_reg "$out" $ECX
-            cmp_reg_reg "$out" $EAX $ECX
-            cc_to_reg "$out" $CC_NE $EAX;;
+            emit_expr ${expr[2]}
+            push_reg $EAX
+            emit_expr ${expr[1]}
+            pop_reg $ECX
+            cmp_reg_reg $EAX $ECX
+            cc_to_reg $CC_NE $EAX;;
         lt)
-            emit_expr "$out" ${expr[2]}
-            push_reg "$out" $EAX
-            emit_expr "$out" ${expr[1]}
-            pop_reg "$out" $ECX
-            cmp_reg_reg "$out" $EAX $ECX
-            cc_to_reg "$out" $CC_L $EAX;;
+            emit_expr ${expr[2]}
+            push_reg $EAX
+            emit_expr ${expr[1]}
+            pop_reg $ECX
+            cmp_reg_reg $EAX $ECX
+            cc_to_reg $CC_L $EAX;;
         le)
-            emit_expr "$out" ${expr[2]}
-            push_reg "$out" $EAX
-            emit_expr "$out" ${expr[1]}
-            pop_reg "$out" $ECX
-            cmp_reg_reg "$out" $EAX $ECX
-            cc_to_reg "$out" $CC_LE $EAX;;
+            emit_expr ${expr[2]}
+            push_reg $EAX
+            emit_expr ${expr[1]}
+            pop_reg $ECX
+            cmp_reg_reg $EAX $ECX
+            cc_to_reg $CC_LE $EAX;;
         gt)
-            emit_expr "$out" ${expr[2]}
-            push_reg "$out" $EAX
-            emit_expr "$out" ${expr[1]}
-            pop_reg "$out" $ECX
-            cmp_reg_reg "$out" $EAX $ECX
-            cc_to_reg "$out" $CC_G $EAX;;
+            emit_expr ${expr[2]}
+            push_reg $EAX
+            emit_expr ${expr[1]}
+            pop_reg $ECX
+            cmp_reg_reg $EAX $ECX
+            cc_to_reg $CC_G $EAX;;
         ge)
-            emit_expr "$out" ${expr[2]}
-            push_reg "$out" $EAX
-            emit_expr "$out" ${expr[1]}
-            pop_reg "$out" $ECX
-            cmp_reg_reg "$out" $EAX $ECX
-            cc_to_reg "$out" $CC_GE $EAX;;
+            emit_expr ${expr[2]}
+            push_reg $EAX
+            emit_expr ${expr[1]}
+            pop_reg $ECX
+            cmp_reg_reg $EAX $ECX
+            cc_to_reg $CC_GE $EAX;;
         lnot)
-            emit_expr "$out" ${expr[1]}
-            test_reg_reg "$out" $EAX $EAX
-            cc_to_reg "$out" $CC_Z $EAX;;
+            emit_expr ${expr[1]}
+            test_reg_reg $EAX $EAX
+            cc_to_reg $CC_Z $EAX;;
         land)
-            local short_circuit=""
-            emit_expr short_circuit ${expr[2]}
-            test_reg_reg short_circuit $EAX $EAX
-            local -i short_circuit_len
-            binlength short_circuit_len "$short_circuit"
+            nest
+                emit_expr ${expr[2]}
+                test_reg_reg $EAX $EAX
+            unnest; local rhs="$res" rhs_len=$reslen
 
-            emit_expr "$out" ${expr[1]}
-            test_reg_reg "$out" $EAX $EAX
-            jcc_forward "$out" $CC_Z $short_circuit_len
-            local -n vout="$out"
-            vout+="$short_circuit"
-            cc_to_reg "$out" $CC_NZ $EAX;;
+            emit_expr ${expr[1]}
+            test_reg_reg $EAX $EAX
+            jcc_forward $CC_Z $rhs_len
+            code+="$rhs"
+            cc_to_reg $CC_NZ $EAX;;
         lor)
-            local short_circuit=""
-            emit_expr short_circuit ${expr[2]}
-            test_reg_reg short_circuit $EAX $EAX
-            local -i short_circuit_len
-            binlength short_circuit_len "$short_circuit"
+            nest
+                emit_expr ${expr[2]}
+                test_reg_reg $EAX $EAX
+            unnest; local rhs="$res" rhs_len=$reslen
 
-            emit_expr "$out" ${expr[1]}
-            test_reg_reg "$out" $EAX $EAX
-            jcc_forward "$out" $CC_NZ $short_circuit_len
-            local -n vout="$out"
-            vout+="$short_circuit"
-            cc_to_reg "$out" $CC_NZ $EAX;;
+            emit_expr ${expr[1]}
+            test_reg_reg $EAX $EAX
+            jcc_forward $CC_NZ $rhs_len
+            code+="$rhs"
+            cc_to_reg $CC_NZ $EAX;;
         *)
             fail "TODO(emit_expr): ${expr[@]}";;
     esac
