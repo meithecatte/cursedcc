@@ -352,6 +352,19 @@ emit_var_write() {
     mov_rbpoff_reg "$out" "${varmap[$name]}" "$reg"
 }
 
+emit_lvalue_write() {
+    local out="$1" lvalue="$2" reg="$3"
+    local -a expr=(${ast[lvalue]})
+    case ${expr[0]} in
+    var)
+        local name="${expr[1]}" pos="${expr[2]}"
+        emit_var_write "$out" "$name" "$pos" "$reg";;
+    *)  error "invalid left-hand side of assignment"
+        # TODO: location tracking
+        end_diagnostic;;
+    esac
+}
+
 emit_statement() {
     local out="$1"
     local node="$2"
@@ -407,6 +420,9 @@ emit_expr() {
         var)
             local name="${expr[1]}" pos="${expr[2]}"
             emit_var_read "$out" "$name" "$pos" $EAX;;
+        assn)
+            emit_expr "$out" ${expr[2]}
+            emit_lvalue_write "$out" ${expr[1]} $EAX;;
         bnot)
             emit_expr "$out" ${expr[1]}
             not_reg "$out" $EAX;;
