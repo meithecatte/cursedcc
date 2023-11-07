@@ -317,6 +317,7 @@ parse_statement() {
         else
             mknode "if $cond $then"
         fi;;
+    lbrace) parse_compound;;
     semi)
         pos+=1
         mknode "nothing";;

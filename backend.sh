@@ -399,6 +399,8 @@ emit_statement() {
             # allow shadowing
             local -i stack_used=$stack_used
             local -A vars_in_block=()
+            local varmap_def=$(declare -p varmap)
+            local -A varmap="${varmap_def#*=}"
 
             local -i i
             for (( i=1; i < ${#stmt[@]}; i++ )); do
