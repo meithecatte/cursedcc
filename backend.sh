@@ -218,7 +218,9 @@ setcc_reg() {
 
 jmp_forward() {
     local dist="$1"
-    if (( dist < 0x80 )); then
+    if (( dist == 0 )); then
+        return
+    elif (( dist < 0x80 )); then
         code+="\xeb"
         p8 code $dist
     else
@@ -229,7 +231,9 @@ jmp_forward() {
 
 jcc_forward() {
     local cc="$1" dist="$2"
-    if (( dist < 0x80 )); then
+    if (( dist == 0 )); then
+        return
+    elif (( dist < 0x80 )); then
         p8 code $((0x70 + cc))
         p8 code $dist
     else
@@ -249,8 +253,13 @@ measure_stack() {
             local -i stack_used=$stack_used
             local -i i
             for (( i=1; i < ${#stmt[@]}; i++ )); do
-                measure_stack "${stmt[i]}"
+                measure_stack ${stmt[i]}
             done;;
+        if)
+            measure_stack ${stmt[2]}
+            if [ -n "${stmt[3]-}" ]; then
+                measure_stack ${stmt[3]}
+            fi;;
         declare)
             local -i i
             for (( i=1; i < ${#stmt[@]}; i++ )); do
@@ -395,6 +404,22 @@ emit_statement() {
             for (( i=1; i < ${#stmt[@]}; i++ )); do
                 emit_statement ${stmt[i]}
             done;;
+        if)
+            nest
+                if [ -n "${stmt[3]-}" ]; then
+                    emit_statement ${stmt[3]}
+                fi
+            unnest; local else="$res" else_len=$reslen
+
+            nest
+                emit_statement ${stmt[2]}
+                jmp_forward $else_len
+            unnest; local then="$res" then_len=$reslen
+
+            emit_expr ${stmt[1]}
+            test_reg_reg $EAX $EAX
+            jcc_forward $CC_Z $then_len
+            code+="$then$else";;
         expr)
             emit_expr ${stmt[1]};;
         return)

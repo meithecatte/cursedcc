@@ -304,12 +304,26 @@ parse_statement() {
         parse_semi
 
         mknode "return $retval";;
+    kw:if)
+        pos+=1
+        expect lparen
+        parse_expr; local cond=$res
+        expect rparen
+        parse_statement; local then=$res
+        if peek kw:else; then
+            pos+=1
+            parse_statement; local else=$res
+            mknode "if $cond $then $else"
+        else
+            mknode "if $cond $then"
+        fi;;
     semi)
         pos+=1
         mknode "nothing";;
     *)
-        parse_expr
-        mknode "expr $res";;
+        parse_expr; local expr=$res
+        parse_semi
+        mknode "expr $expr";;
     esac
 }
 
