@@ -169,7 +169,7 @@ show_tokens() {
 
 declare -i pos=0
 declare -a ast=()
-declare -Ai functions
+declare -iA functions
 
 # mknode node
 mknode() {

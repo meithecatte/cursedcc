@@ -47,7 +47,7 @@ build_stringtable() {
 }
 
 build_symtab() {
-    local -Ai strtab_positions
+    local -iA strtab_positions
     build_stringtable .strtab strtab_positions "${!symbol_sections[@]}"
     # XXX: this struct differs between 32- and 64-bit ELFs. Let's do only 64-bit
     # for now.
@@ -69,12 +69,15 @@ build_symtab() {
     section_types[.symtab]="$SHT_SYMTAB"
 }
 
-declare -Ai section_index
+# Maps the section name to its index in the section header table.
+declare -iA section_index
 
 # emit_elf filename
 emit_elf() {
     local filename="$1"
 
+    # Iteration order of bash's associative arrays is not stable. Pick one
+    # ordering and stick to it.
     local -a section_order=("${!sections[@]}" .shstrtab .strtab .symtab)
 
     local -i section_count=1
@@ -85,7 +88,7 @@ emit_elf() {
 
     build_symtab
 
-    local -Ai shstrtab_positions
+    local -iA shstrtab_positions
     build_stringtable .shstrtab shstrtab_positions "${!sections[@]}" .shstrtab
 
     local -i position=$ehsize

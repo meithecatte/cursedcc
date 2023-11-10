@@ -16,25 +16,10 @@ CC_GE=13
 CC_LE=14
 CC_G=15
 
-# The code generation strategy for everything involving jumps requires
-# generating the code being jumped over to a separate variable, so that its
-# size can later be measured.
-declare -a code_arr=("")
-declare -i code_cur=0
-declare -n code="code_arr[code_cur]"
-
-nest() {
-    code_cur+=1
-    code_arr[code_cur]=""
-}
-
-# sets res, reslen
-unnest() {
-    res="$code"
-    binlength reslen "$res"
-    unset code_arr[code_cur]
-    code_cur=code_cur-1
-}
+# NOTE: the label resolver assumes that all bytes in "$code" are encoded
+# as four characters (backslash, x, and two hexdigits). So don't get clever
+# with octal or \n or whatever else.
+declare code=""
 
 modrm_reg() {
     # reg - register field
@@ -216,31 +201,14 @@ setcc_reg() {
     modrm_reg 0 "$dst"
 }
 
-jmp_forward() {
-    local dist="$1"
-    if (( dist == 0 )); then
-        return
-    elif (( dist < 0x80 )); then
-        code+="\xeb"
-        p8 code $dist
-    else
-        code+="\xe9"
-        p32 code $dist
-    fi
+# jmp label
+jmp() {
+    jump "$1"
 }
 
-jcc_forward() {
-    local cc="$1" dist="$2"
-    if (( dist == 0 )); then
-        return
-    elif (( dist < 0x80 )); then
-        p8 code $((0x70 + cc))
-        p8 code $dist
-    else
-        code+="\x0f"
-        p8 code $((0x80 + cc))
-        p32 code $dist
-    fi
+# jmp cc label
+jcc() {
+    jump "$2" "$1"
 }
 
 # AST traversal starts here
@@ -291,7 +259,8 @@ emit_function() {
 
     echo "rounding up to $stack_max"
 
-    local -i pos
+    clear_labels
+    local -i pos label_counter=0
     binlength pos "${sections[.text]}"
     symbol_sections["$fname"]=.text
     symbol_offsets["$fname"]=$pos
@@ -316,9 +285,11 @@ emit_function() {
         xor_reg_reg $EAX $EAX
     fi
 
+    label epilogue
     leave
     ret
 
+    resolve_jumps
     sections[.text]+="$code"
 }
 
@@ -407,27 +378,26 @@ emit_statement() {
                 emit_statement ${stmt[i]}
             done;;
         if)
-            nest
-                if [ -n "${stmt[3]-}" ]; then
-                    emit_statement ${stmt[3]}
-                fi
-            unnest; local else="$res" else_len=$reslen
-
-            nest
-                emit_statement ${stmt[2]}
-                jmp_forward $else_len
-            unnest; local then="$res" then_len=$reslen
+            local -i x=$label_counter
+            label_counter+=1
 
             emit_expr ${stmt[1]}
             test_reg_reg $EAX $EAX
-            jcc_forward $CC_Z $then_len
-            code+="$then$else";;
+            jcc $CC_Z else$x
+
+            emit_statement ${stmt[2]}
+            jmp fi$x
+
+            label else$x
+            if [ -n "${stmt[3]-}" ]; then
+                emit_statement ${stmt[3]}
+            fi
+            label fi$x;;
         expr)
             emit_expr ${stmt[1]};;
         return)
             emit_expr ${stmt[1]}
-            leave
-            ret;;
+            jmp epilogue;;
         nothing) ;;
         *)
             fail "TODO(emit_statement): ${stmt[@]}";;
@@ -570,41 +540,46 @@ emit_expr() {
             test_reg_reg $EAX $EAX
             cc_to_reg $CC_Z $EAX;;
         land)
-            nest
-                emit_expr ${expr[2]}
-                test_reg_reg $EAX $EAX
-            unnest; local rhs="$res" rhs_len=$reslen
+            local -i x=$label_counter
+            label_counter+=1
 
             emit_expr ${expr[1]}
             test_reg_reg $EAX $EAX
-            jcc_forward $CC_Z $rhs_len
-            code+="$rhs"
+            jcc $CC_Z skip$x
+
+            emit_expr ${expr[2]}
+            test_reg_reg $EAX $EAX
+            label skip$x
+
             cc_to_reg $CC_NZ $EAX;;
         lor)
-            nest
-                emit_expr ${expr[2]}
-                test_reg_reg $EAX $EAX
-            unnest; local rhs="$res" rhs_len=$reslen
+            local -i x=$label_counter
+            label_counter+=1
 
             emit_expr ${expr[1]}
             test_reg_reg $EAX $EAX
-            jcc_forward $CC_NZ $rhs_len
-            code+="$rhs"
+            jcc $CC_NZ skip$x
+
+            emit_expr ${expr[2]}
+            test_reg_reg $EAX $EAX
+            label skip$x
+
             cc_to_reg $CC_NZ $EAX;;
         ternary)
-            nest
-                emit_expr ${expr[3]}
-            unnest; local no="$res" no_len=$reslen
-
-            nest
-                emit_expr ${expr[2]}
-                jmp_forward $no_len
-            unnest; local yes="$res" yes_len=$reslen
+            local -i x=$label_counter
+            label_counter+=1
 
             emit_expr ${expr[1]}
             test_reg_reg $EAX $EAX
-            jcc_forward $CC_Z $yes_len
-            code+="$yes$no";;
+            jcc $CC_Z no$x
+
+            emit_expr ${expr[2]}
+            jmp end$x
+
+            label no$x
+            emit_expr ${expr[3]}
+            
+            label end$x;;
         *)
             fail "TODO(emit_expr): ${expr[@]}";;
     esac
