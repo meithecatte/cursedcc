@@ -22,9 +22,37 @@ clear_labels() {
 # Creates a new label at the current position in the code.
 # label name
 label() {
-    # TODO: optimize fallthrough here
-    local -i position
+    local -i position did_fallthrough=0
     binlength position "$code"
+    # Check for a jump that should become fallthrough
+    while (( ${#jump_position[@]} )) \
+        && [ "${jump_target[-1]}" == "$1" ] \
+        && (( jump_position[-1] == position - 2 ))
+    do
+        local -i i=${#jump_position[@]}-1
+        unset jump_position[i]
+        unset jump_target[i]
+        unset jump_condition[i]
+        position=position-2
+        code="${code:0:4*position}"
+        did_fallthrough=1
+    done
+
+    # This handles the case when other labels have been defined between
+    # the fall-through jump and the corresponding label, e.g.
+    # jmp b; label a; label b
+    if (( did_fallthrough )); then
+        local -i i
+        for (( i=${#label_order[@]}-1; i >= 0; i-- )); do
+            local label_name=${label_order[i]}
+            if (( label_position[$label_name] > position )); then
+                label_position[$label_name]=$position
+            else
+                break
+            fi
+        done
+    fi
+
     label_position["$1"]=$position
     label_order+=("$1")
 }
@@ -74,6 +102,12 @@ resolve_jumps() {
     # HACK: It helps a lot with the loops below if we can be sure that after
     # the last label, there are no jumps.
     label __end_of_function
+
+    if [ -n "${DEBUG_JUMPS-}" ]; then
+        declare -p label_position
+        declare -p jump_position
+        declare -p jump_target
+    fi
 
     # A lower bound for the distance the jump will need to cover.
     # If the jump is currently not marked as long, this is the accurate
@@ -149,6 +183,10 @@ resolve_jumps() {
 
         label_actual_position["$label"]=position+adjust
     done
+
+    if [ -n "${DEBUG_JUMPS-}" ]; then
+        echo "Final adjustment factor: $adjust"
+    fi
 
     # Pre-expansion position.
     local -ia patch_position=()
