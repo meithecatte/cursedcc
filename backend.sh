@@ -223,6 +223,21 @@ measure_stack() {
             for (( i=1; i < ${#stmt[@]}; i++ )); do
                 measure_stack ${stmt[i]}
             done;;
+        label)
+            local label_name=${stmt[1]}
+            local labeled_stmt=${stmt[2]}
+            local label_pos=${stmt[3]}
+
+            if [ -n "${user_labels[$label_name]-}" ]; then
+                error "duplicate label \`$label_name\`"
+                show_token ${user_labels[$label_name]} "label first defined here"
+                show_token $label_pos "label redefined here"
+                end_diagnostic
+            else
+                user_labels[$label_name]=$label_pos
+            fi
+
+            measure_stack $labeled_stmt;;
         if)
             measure_stack ${stmt[2]}
             if [ -n "${stmt[3]-}" ]; then
@@ -237,7 +252,7 @@ measure_stack() {
                     stack_max=stack_used
                 fi
             done;;
-        expr|return|nothing) ;;
+        expr|return|nothing|goto) ;;
         *)  fail "TODO(measure_stack): ${stmt[0]}";;
     esac
 }
@@ -248,6 +263,9 @@ emit_function() {
 
     local -i stack_max=0
     local -i stack_used=0
+
+    # Maps goto-labels to the positions at which they were defined
+    local -iA user_labels=()
 
     measure_stack $node
 
@@ -366,6 +384,9 @@ emit_statement() {
                     emit_var_write $name $pos $EAX
                 fi
             done;;
+        label)
+            label user_${stmt[1]}
+            emit_statement ${stmt[2]};;
         compound)
             # allow shadowing
             local -i stack_used=$stack_used
@@ -393,6 +414,17 @@ emit_statement() {
                 emit_statement ${stmt[3]}
             fi
             label fi$x;;
+        goto)
+            local label_name=${stmt[1]}
+            local pos=${stmt[2]}
+
+            if [ -z "${user_labels[$label_name]-}" ]; then
+                error "undeclared label \`$label_name\`"
+                show_token $pos "no such label"
+                end_diagnostic
+            fi
+
+            jmp user_$label_name;;
         expr)
             emit_expr ${stmt[1]};;
         return)

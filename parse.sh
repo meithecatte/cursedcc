@@ -297,6 +297,18 @@ parse_statement() {
         return 1
     fi
 
+    if (( pos + 1 < ${#toktype[@]} )) \
+        && [[ "${toktype[pos]}" == "ident" ]] \
+        && [[ "${toktype[pos+1]}" == "colon" ]]
+    then
+        local label_pos=$pos
+        expect ident; local label=$expect_tokdata
+        expect colon
+        parse_statement
+        mknode "label $label $res $label_pos"
+        return
+    fi
+
     case "${toktype[pos]}" in
     kw:return)
         pos+=1
@@ -317,6 +329,13 @@ parse_statement() {
         else
             mknode "if $cond $then"
         fi;;
+    kw:goto)
+        pos+=1
+        local label_pos=$pos
+        expect ident; local label=$expect_tokdata
+        parse_semi
+
+        mknode "goto $label $label_pos";;
     lbrace) parse_compound;;
     semi)
         pos+=1
