@@ -243,6 +243,10 @@ measure_stack() {
             if [ -n "${stmt[3]-}" ]; then
                 measure_stack ${stmt[3]}
             fi;;
+        while)
+            measure_stack ${stmt[2]};;
+        dowhile)
+            measure_stack ${stmt[1]};;
         declare)
             local -i i
             for (( i=1; i < ${#stmt[@]}; i++ )); do
@@ -252,7 +256,7 @@ measure_stack() {
                     stack_max=stack_used
                 fi
             done;;
-        expr|return|nothing|goto) ;;
+        expr|return|nothing|goto|continue|break) ;;
         *)  fail "TODO(measure_stack): ${stmt[0]}";;
     esac
 }
@@ -414,6 +418,50 @@ emit_statement() {
                 emit_statement ${stmt[3]}
             fi
             label fi$x;;
+        while)
+            local -i x=$label_counter
+            label_counter+=1
+
+            local innermost_continue=continue$x innermost_break=break$x
+            label continue$x
+            emit_expr ${stmt[1]}
+            test_reg_reg $EAX $EAX
+            jcc $CC_Z break$x
+
+            emit_statement ${stmt[2]}
+            jmp continue$x
+
+            label break$x;;
+        dowhile)
+            local -i x=$label_counter
+            label_counter+=1
+
+            local innermost_continue=continue$x innermost_break=break$x
+            label loop$x
+            emit_statement ${stmt[1]}
+
+            label continue$x
+            emit_expr ${stmt[2]}
+            test_reg_reg $EAX $EAX
+            jcc $CC_NZ loop$x
+
+            label break$x;;
+        continue)
+            if [ -z "${innermost_continue-}" ]; then
+                error "\`continue\` can only be used within a loop"
+                show_token ${stmt[1]} "not in a loop"
+                end_diagnostic
+            else
+                jmp $innermost_continue
+            fi;;
+        break)
+            if [ -z "${innermost_break-}" ]; then
+                error "\`break\` can only be used within a loop or switch"
+                show_token ${stmt[1]} "not in a loop or switch"
+                end_diagnostic
+            else
+                jmp $innermost_break
+            fi;;
         goto)
             local label_name=${stmt[1]}
             local pos=${stmt[2]}

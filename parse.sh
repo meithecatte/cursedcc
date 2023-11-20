@@ -255,7 +255,7 @@ parse_compound() {
             return 1
         fi
 
-        if peek kw:int; then
+        if peek_declaration; then
             parse_declaration
             stmts+=("$res")
         else
@@ -289,6 +289,7 @@ recover_semi() {
     done
 }
 
+# 6.8 Statements and blocks
 parse_statement() {
     if ! has_tokens; then
         error "expected statement, got EOF"
@@ -297,6 +298,7 @@ parse_statement() {
         return 1
     fi
 
+    # 6.8.1 Labeled statements
     if (( pos + 1 < ${#toktype[@]} )) \
         && [[ "${toktype[pos]}" == "ident" ]] \
         && [[ "${toktype[pos+1]}" == "colon" ]]
@@ -310,12 +312,8 @@ parse_statement() {
     fi
 
     case "${toktype[pos]}" in
-    kw:return)
-        pos+=1
-        parse_expr; local retval=$res
-        parse_semi
-
-        mknode "return $retval";;
+    # 6.8.4 Selection statements
+    # 6.8.4.1 The if statement
     kw:if)
         pos+=1
         expect lparen
@@ -329,6 +327,31 @@ parse_statement() {
         else
             mknode "if $cond $then"
         fi;;
+
+    # 6.8.5 Iteration statements
+    # 6.8.5.1 The while statement
+    kw:while)
+        pos+=1
+        expect lparen
+        parse_expr; local cond=$res
+        expect rparen
+        parse_statement; local body=$res
+
+        mknode "while $cond $body";;
+    # 6.8.5.2 The do statement
+    kw:do)
+        pos+=1
+        parse_statement; local body=$res
+        expect kw:while
+        expect lparen
+        parse_expr; local cond=$res
+        expect rparen
+        parse_semi
+
+        mknode "dowhile $body $cond";;
+
+    # 6.8.6 Jump statements
+    # 6.8.6.1 The goto statement
     kw:goto)
         pos+=1
         local label_pos=$pos
@@ -336,7 +359,32 @@ parse_statement() {
         parse_semi
 
         mknode "goto $label $label_pos";;
+    # 6.8.6.2 The continue statement
+    kw:continue)
+        local -i continue_pos=$pos
+        pos+=1
+        parse_semi
+
+        mknode "continue $continue_pos";;
+    # 6.8.6.3 The break statement
+    kw:break)
+        local -i break_pos=$pos
+        pos+=1
+        parse_semi
+
+        mknode "break $break_pos";;
+    # 6.8.6.4 The return statement
+    kw:return)
+        pos+=1
+        parse_expr; local retval=$res
+        parse_semi
+
+        mknode "return $retval";;
+
+    # 6.8.2 Compound statement
     lbrace) parse_compound;;
+
+    # 6.8.3 Expression and null statements
     semi)
         pos+=1
         mknode "nothing";;
@@ -348,6 +396,10 @@ parse_statement() {
 }
 
 # 6.7 Declarations
+peek_declaration() {
+    peek kw:int
+}
+
 parse_declaration() {
     local type_pos=$pos
     expect kw:int
