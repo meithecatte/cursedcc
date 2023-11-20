@@ -247,6 +247,12 @@ measure_stack() {
             measure_stack ${stmt[2]};;
         dowhile)
             measure_stack ${stmt[1]};;
+        for)
+            # NOTE: for loops are partially desugared in the parser to move
+            # the initializing clause to a compound block surrounding
+            # the for loop node. As such, we don't need to do anything about
+            # the possible allocation of the loop's control variable.
+            measure_stack ${stmt[3]};;
         declare)
             local -i i
             for (( i=1; i < ${#stmt[@]}; i++ )); do
@@ -446,6 +452,25 @@ emit_statement() {
             jcc $CC_NZ loop$x
 
             label break$x;;
+        for)
+            local -i x=$label_counter
+            label_counter+=1
+
+            local innermost_continue=continue$x innermost_break=break$x
+
+            label loop$x
+            emit_expr ${stmt[1]}
+            test_reg_reg $EAX $EAX
+            jcc $CC_Z break$x
+
+            emit_statement ${stmt[3]}
+            label continue$x
+
+            emit_statement ${stmt[2]}
+            jmp loop$x
+
+            label break$x;;
+
         continue)
             if [ -z "${innermost_continue-}" ]; then
                 error "\`continue\` can only be used within a loop"

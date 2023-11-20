@@ -349,6 +349,39 @@ parse_statement() {
         parse_semi
 
         mknode "dowhile $body $cond";;
+    # 6.8.5.3 The for statement
+    kw:for)
+        pos+=1
+        expect lparen
+        if peek semi; then
+            pos+=1
+            mknode "nothing"; local init=$res
+        elif peek_declaration; then
+            parse_declaration; local init=$res
+        else
+            parse_expr; mknode "expr $res"; local init=$res
+            parse_semi
+        fi
+
+        if peek semi; then
+            pos+=1
+            mknode "literal 1"; local cond=$res
+        else
+            parse_expr; local cond=$res
+            parse_semi
+        fi
+
+        if ! peek rparen; then
+            parse_expr; mknode "expr $res"; local step=$res
+        else
+            mknode "nothing"; local step=$res
+        fi
+
+        expect rparen
+        parse_statement; local body=$res
+
+        mknode "for $cond $step $body"
+        mknode "compound $init $res";;
 
     # 6.8.6 Jump statements
     # 6.8.6.1 The goto statement
@@ -404,6 +437,7 @@ parse_declaration() {
     local type_pos=$pos
     expect kw:int
     if peek semi; then
+        pos+=1
         warning "useless type name in empty declaration"
         show_token $pos
         end_diagnostic

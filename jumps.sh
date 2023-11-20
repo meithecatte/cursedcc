@@ -153,7 +153,7 @@ resolve_jumps() {
             local -i target=${label_position["${jump_target[i]}"]}
             if (( target <= jump_position[j] )); then
                 long_encoding_size $i
-                jump_cur_disp[i]-=res-2
+                ! let jump_cur_disp[i]-=res-2
                 consider_jump $i
             fi
         done
