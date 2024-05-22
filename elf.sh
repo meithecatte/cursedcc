@@ -48,7 +48,9 @@ build_stringtable() {
 
 build_symtab() {
     local -iA strtab_positions
+    # Table of symbol names
     build_stringtable .strtab strtab_positions "${!symbol_sections[@]}"
+
     # XXX: this struct differs between 32- and 64-bit ELFs. Let's do only 64-bit
     # for now.
     local symtab=""
@@ -56,12 +58,11 @@ build_symtab() {
     for symbol in "${!symbol_sections[@]}"; do
         local section="${symbol_sections[$symbol]}"
         local offset="${symbol_offsets[$symbol]}"
-        p32 symtab "${strtab_positions[$symbol]}"
-        # global binding, no type specified
-        symtab+="\x10" # st_info
-        symtab+="\x00" # st_other
-        p16 symtab "${section_index[$section]}"
-        p64 symtab "$offset"
+        p32 symtab "${strtab_positions[$symbol]}" # st_name
+        symtab+="\x10" # st_info: STB_GLOBAL, STT_NOTYPE
+        symtab+="\x00" # st_other: reserved, 0
+        p16 symtab "${section_index[$section]}" # st_shndx
+        p64 symtab "$offset" # st_value
         p64 symtab 0 # st_size
     done
 
@@ -80,6 +81,8 @@ emit_elf() {
     # ordering and stick to it.
     local -a section_order=("${!sections[@]}" .shstrtab .strtab .symtab)
 
+    # The first entry in the section table should be SHT_NULL
+    # cf. https://stackoverflow.com/q/26812142
     local -i section_count=1
     for section in "${section_order[@]}"; do
         section_index["$section"]=$section_count
@@ -88,6 +91,7 @@ emit_elf() {
 
     build_symtab
 
+    # Table of section names
     local -iA shstrtab_positions
     build_stringtable .shstrtab shstrtab_positions "${!sections[@]}" .shstrtab
 
