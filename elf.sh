@@ -16,6 +16,8 @@ ET_REL=1
 
 EM_X86_64=62
 
+SHN_UNDEF=0
+
 SHT_PROGBITS=1
 SHT_SYMTAB=2
 SHT_STRTAB=3
@@ -28,6 +30,22 @@ SHF_EXECINSTR=4
 psz() {
     p64 "$@"
 }
+
+# Maps the section name to its index in the section header table.
+declare -iA section_index
+
+# Maps the section name to the data it should contain
+declare -A sections
+
+# Maps the section name to its sh_type
+declare -A section_types
+
+# Maps the section name to its sh_flags
+declare -A section_attrs
+
+# Maps the names of defined symbols to their positions
+declare -A symbol_sections
+declare -A symbol_offsets
 
 # build_stringtable section_name out_array entries...
 build_stringtable() {
@@ -55,6 +73,14 @@ build_symtab() {
     # for now.
     local symtab=""
 
+    # Of *course* the first symbol table entry needs to be null, what did you
+    # expect?
+
+    local i
+    for (( i=0; i < 24; i++ )); do
+        symtab+="\x00"
+    done
+
     for symbol in "${!symbol_sections[@]}"; do
         local section="${symbol_sections[$symbol]}"
         local offset="${symbol_offsets[$symbol]}"
@@ -70,9 +96,6 @@ build_symtab() {
     section_types[.symtab]="$SHT_SYMTAB"
 }
 
-# Maps the section name to its index in the section header table.
-declare -iA section_index
-
 # emit_elf filename
 emit_elf() {
     local filename="$1"
@@ -82,6 +105,7 @@ emit_elf() {
     local -a section_order=("${!sections[@]}" .shstrtab .strtab .symtab)
 
     # The first entry in the section table should be SHT_NULL
+    # (this is probably to not conflict with SHN_UNDEF)
     # cf. https://stackoverflow.com/q/26812142
     local -i section_count=1
     for section in "${section_order[@]}"; do
@@ -162,9 +186,3 @@ emit_elf() {
     printf "%b" "$section_headers" >&$fd
     exec {fd}>&-
 }
-
-declare -A sections
-declare -A section_types
-declare -A section_attrs
-declare -A symbol_sections
-declare -A symbol_offsets
