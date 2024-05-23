@@ -169,7 +169,7 @@ show_tokens() {
 
 declare -i pos=0
 declare -a ast=()
-declare -iA functions
+declare -A functions
 
 # mknode node
 mknode() {
@@ -231,6 +231,7 @@ parse() {
 
 parse_function() {
     expect kw:int
+    local name_pos="$pos"
     expect ident
     local name="$expect_tokdata"
     expect lparen
@@ -238,7 +239,16 @@ parse_function() {
     expect rparen
 
     parse_compound
-    functions[$name]=$res
+
+    if [ -n "${functions[$name]-}" ]; then
+        error "function \`$name\` is defined twice"
+        local previous=(${functions[$name]})
+        show_token ${previous[1]} "\`$name\` first defined here"
+        show_token $name_pos "\`$name\` redefined here"
+        end_diagnostic
+        return
+    fi
+    functions[$name]="$res $name_pos"
 }
 
 # 6.8.2 Compound statement

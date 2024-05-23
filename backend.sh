@@ -279,7 +279,8 @@ measure_stack() {
 
 emit_function() {
     local fname="$1"
-    local -i node=${functions[$fname]}
+    local function_def=(${functions[$fname]})
+    local -i node=${function_def[0]}
 
     local -i stack_max=0
     local -i stack_used=0
