@@ -288,21 +288,26 @@ parse_function() {
     mknode "fundecl int $params" $begin
     local fundecl="$res"
 
-    parse_compound
-    local body="$res"
+    if peek lbrace; then
+        parse_compound
+        local body="$res"
 
-    if [ -n "${functions[$name]-}" ]; then
-        error "function \`$name\` is defined twice"
-        show_node ${global_namespace[$name]} "\`$name\` first defined here"
-        show_node $fundecl "\`$name\` redefined here"
-        end_diagnostic
-        return
+        if [ -n "${functions[$name]-}" ]; then
+            error "function \`$name\` is defined twice"
+            show_node ${global_namespace[$name]} "\`$name\` first defined here"
+            show_node $fundecl "\`$name\` redefined here"
+            end_diagnostic
+            return
+        fi
+
+        global_namespace[$name]=$fundecl
+
+        functions[$name]="$body"
+        emit_function $name $params $body
+    else
+        expect semi
+        global_namespace[$name]=$fundecl
     fi
-
-    global_namespace[$name]=$fundecl
-
-    functions[$name]="$body"
-    emit_function $name $params $body
 }
 
 # 6.8.2 Compound statement
