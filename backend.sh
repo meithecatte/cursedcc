@@ -294,7 +294,6 @@ measure_stack() {
     local -a stmt=(${ast[$1]})
     case ${stmt[0]} in
         compound)
-            local -i stack_used=$stack_used
             local -i i
             for (( i=1; i < ${#stmt[@]}; i++ )); do
                 measure_stack ${stmt[i]}
@@ -333,9 +332,6 @@ measure_stack() {
             for (( i=1; i < ${#stmt[@]}; i++ )); do
                 local -i var_size=4
                 stack_used+=var_size
-                if (( stack_used > stack_max )); then
-                    stack_max=stack_used
-                fi
             done;;
         expr|return|nothing|goto|continue|break) ;;
         *)  fail "TODO(measure_stack): ${stmt[0]}";;
@@ -345,14 +341,13 @@ measure_stack() {
 emit_function() {
     local fname="$1" params="$2" body="$3"
 
-    local -i stack_used=0
-    measure_params_stack $params
-    local -i stack_max=$stack_used
-
     # Maps goto-labels to the positions at which they were defined
     local -iA user_labels=()
 
+    local -i stack_used=0
+    measure_params_stack $params
     measure_stack $body
+    local -i stack_max=$stack_used
     stack_used=0
 
     echo "$fname has $stack_max bytes of local variables"
@@ -506,7 +501,6 @@ emit_statement() {
             emit_statement ${stmt[2]};;
         compound)
             # allow shadowing
-            local -i stack_used=$stack_used
             local -A vars_in_block=()
             local varmap_def=$(declare -p varmap)
             local -A varmap="${varmap_def#*=}"
