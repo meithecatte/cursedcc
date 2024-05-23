@@ -47,7 +47,7 @@ op_modrm_reg() {
     local op="$1" reg="$2" rm="$3" wide="${4-0}"
     rex $reg $rm $wide
     code+="$op"
-    p8 code $((0xc0 + 8 * reg + rm))
+    p8 code $((0xc0 + 8 * (reg & 7) + (rm & 7)))
 }
 
 op_modrm_rbpoff() {
@@ -55,10 +55,10 @@ op_modrm_rbpoff() {
     rex $reg 0
     code+="$op"
     if (( -128 <= offset && offset <= 127 )); then
-        p8 code $((0x45 + 8 * reg))
+        p8 code $((0x45 + 8 * (reg & 7)))
         p8 code $offset
     else
-        p8 code $((0x85 + 8 * reg))
+        p8 code $((0x85 + 8 * (reg & 7)))
         p32 code $offset
     fi
 }
@@ -125,14 +125,14 @@ sar_reg_cl() {
 
 push_reg() {
     local reg="$1"
-    (( reg < 8 )) || fail "TODO: push high reg"
-    p8 code $((0x50 + reg))
+    rex 0 $reg
+    p8 code $((0x50 + (reg & 7)))
 }
 
 pop_reg() {
     local reg="$1"
-    (( reg < 8 )) || fail "TODO: pop high reg"
-    p8 code $((0x58 + reg))
+    rex 0 $reg
+    p8 code $((0x58 + (reg & 7)))
 }
 
 add_reg_reg() {
@@ -260,7 +260,7 @@ measure_params_stack() {
 
 # emit_prologue params
 emit_prologue() {
-    local -a params=(${ast[$1]}) pos=(${ast_pos[$1]})
+    local -a params=(${ast[$1]}) param_pos=(${ast_pos[$1]})
     local -i i=0
     for param_id in "${params[@]:1}"; do
         local -a param=(${ast[param_id]})
@@ -268,13 +268,15 @@ emit_prologue() {
             continue
         fi
 
+        local name="${param[2]}" pos="${param_pos[1]}"
         if (( i < ${#abi_regs[@]} )); then
-            emit_declare_var "${param[2]}" "${pos[1]}"
-            emit_var_write "${param[2]}" "${pos[1]}" "${abi_regs[i]}"
-            i+=1
+            emit_declare_var "$name" "$pos"
+            emit_var_write "$name" "$pos" "${abi_regs[i]}"
         else
-            fail "TODO more parameter regs"
+            check_declare_var "$name" "$pos"
+            varmap["$name"]=$((8 * (i - 6) + 16))
         fi
+        i+=1
     done
 }
 
@@ -390,8 +392,7 @@ emit_function() {
     sections[.text]+="$code"
 }
 
-# emit_declare_var name pos
-emit_declare_var() {
+check_declare_var() {
     local name="$1" pos="$2"
     if [ -n "${vars_in_block[$name]-}" ]; then
         error "redefinition of \`$name\`"
@@ -401,6 +402,13 @@ emit_declare_var() {
     fi
 
     vars_in_block[$name]=$pos
+}
+
+# emit_declare_var name pos
+emit_declare_var() {
+    local name="$1" pos="$2"
+    check_declare_var "$name" "$pos"
+
     local -i var_size=4
     local -i stack_offset=$stack_used
     stack_used+=var_size
