@@ -248,7 +248,7 @@ parse_parameter_type_list() {
         param_list+=($res)
     done
 
-    mknode "params ${param_list[@]}" $begin
+    mknode "params ${param_list[*]}" $begin
 }
 
 # mvp grammar
@@ -599,7 +599,7 @@ parse_postfix_expr() {
                 done
             fi
             expect rparen
-            mknode "call $lhs ${args[@]}" $begin;;
+            mknode "call $lhs ${args[*]}" $begin;;
         *)
             break;;
         esac
