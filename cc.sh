@@ -52,6 +52,7 @@ fi
 
 declare -p functions
 declare -p ast
+declare -p ast_pos
 
 sections[.text]=""
 section_types[.text]="$SHT_PROGBITS"

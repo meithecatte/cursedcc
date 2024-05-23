@@ -81,6 +81,22 @@ show_token() {
     show_line "$filename" $begin $len "${lines[line]}" "$comment"
 }
 
+# show_node node_id comment
+show_node() {
+    local pos=(${ast_pos[$1]})
+    local comment="${2-}"
+    local -i line="${tokline[pos[0]]}"
+    local filename="${line_map[line]}"
+    local -i begin="${tokcol[pos[0]]}"
+    if (( ${tokline[pos[1]]} == line )); then
+        local -i end=$((${tokcol[pos[1]]} + ${#tokdata[pos[1]]}))
+        local -i len=$((end - begin))
+    else
+        local -i len=$((${#lines[line]} - begin))
+    fi
+    show_line "$filename" $begin $len "${lines[line]}" "$comment"
+}
+
 # show_eof comment
 show_eof() {
     local -i pos=${tokcol[-1]}+${#tokdata[-1]}

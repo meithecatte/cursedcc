@@ -222,6 +222,35 @@ call_symbol() {
 }
 
 # AST traversal starts here
+measure_params_stack() {
+    local -a params=(${ast[$1]})
+    for param_id in "${params[@]:1}"; do
+        local -a param=(${ast[param_id]})
+        if (( ${#param[@]} < 3 )) && [ "${param[1]}" != void ]; then
+            error "missing name for parameter"
+            show_node $param_id "parameter name omitted"
+            end_diagnostic
+            continue
+        fi
+
+        if [ "${param[1]}" == void ]; then
+            if (( ${#param[@]} == 3 )); then
+                error "invalid type for parameter"
+                show_node $param_id "parameter cannot have type \`void\`"
+                end_diagnostic
+                continue
+            elif (( ${#params[@]} != 2 )); then
+                error "\`void\` must be the only parameter"
+                show_node $param_id "\`void\` must be the only parameter"
+                end_diagnostic
+                continue
+            fi
+        else
+            local -i var_size=4
+            stack_used+=$var_size
+        fi
+    done
+}
 
 # measure_stack stmt
 measure_stack() {
@@ -281,9 +310,11 @@ emit_function() {
     local fname="$1"
     local function_def=(${functions[$fname]})
     local -i node=${function_def[0]}
+    local params=${function_def[2]}
 
-    local -i stack_max=0
     local -i stack_used=0
+    measure_params_stack $params
+    local -i stack_max=$stack_used
 
     # Maps goto-labels to the positions at which they were defined
     local -iA user_labels=()
@@ -528,19 +559,19 @@ cc_to_reg() {
 
 # emits code that puts the result in EAX
 emit_expr() {
-    local -a expr=(${ast[$1]})
+    local -a expr=(${ast[$1]}) pos=(${ast_pos[$1]})
     case ${expr[0]} in
         literal)
             mov_reg_imm $EAX ${expr[1]};;
         var)
-            local name="${expr[1]}" pos="${expr[2]}"
-            emit_var_read $name $pos $EAX;;
+            local name="${expr[1]}"
+            emit_var_read $name ${pos[0]} $EAX;;
         call)
-            local lhs="${expr[1]}" pos="${expr[2]}"
+            local lhs="${expr[1]}"
             local -a call_target=(${ast[lhs]})
             if [ "${call_target[0]}" != "var" ]; then
                 error "indirect calls are not supported"
-                show_token $pos "calm thy unhingedness"
+                show_node $lhs "calm thy unhingedness"
                 end_diagnostic
                 return
             fi

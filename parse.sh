@@ -168,13 +168,16 @@ show_tokens() {
 }
 
 declare -i pos=0
-declare -a ast=()
+declare -a ast=() ast_pos=()
 declare -A functions
 
-# mknode node
+# mknode node begin
 mknode() {
+    local end=$((pos - 1))
+    local begin=${2-$end}
     res=${#ast[@]}
     ast+=("$1")
+    ast_pos+=("$begin $end")
 }
 
 has_tokens() {
@@ -233,23 +236,24 @@ parse() {
 # 6.7.6 Declarators
 parse_parameter_type_list() {
     local param_list=()
+    local begin=$pos
 
     parse_parameter_declaration
     param_list+=($res)
 
-    while has_tokens && [ "${toktype[pos]}" == "comma" ]; do
+    while peek comma; do
         expect comma
         # TODO: handle ellipsis
         parse_parameter_declaration
         param_list+=($res)
     done
 
-    mknode "params ${param_list[@]}"
+    mknode "params ${param_list[@]}" $begin
 }
 
 # mvp grammar
 parse_parameter_declaration() {
-    local ty
+    local ty begin=$pos
     case "${toktype[pos]}" in
     kw:void) pos+=1; ty=void;;
     kw:int)  pos+=1; ty=int;;
@@ -262,11 +266,11 @@ parse_parameter_declaration() {
         return
     esac
 
-    if [ "${toktype[pos]}" == "ident" ]; then
+    if peek ident; then
         expect ident; local name="${expect_tokdata}"
-        mknode "param $ty $name"
+        mknode "param $ty $name" $begin
     else
-        mknode "param $ty"
+        mknode "param $ty" $begin
     fi
 }
 
@@ -317,7 +321,7 @@ parse_compound() {
     done
     expect rbrace
 
-    mknode "compound ${stmts[*]}"
+    mknode "compound ${stmts[*]}" $lbrace_pos
 }
 
 # expect a semicolon. if not present, consume tokens until found
@@ -359,15 +363,16 @@ parse_statement() {
         expect ident; local label=$expect_tokdata
         expect colon
         parse_statement
-        mknode "label $label $res $label_pos"
+        mknode "label $label $res $label_pos" $label_pos
         return
     fi
 
+    local begin=$pos
     case "${toktype[pos]}" in
     # 6.8.4 Selection statements
     # 6.8.4.1 The if statement
     kw:if)
-        pos+=1
+        expect kw:if
         expect lparen
         parse_expr; local cond=$res
         expect rparen
@@ -375,24 +380,24 @@ parse_statement() {
         if peek kw:else; then
             pos+=1
             parse_statement; local else=$res
-            mknode "if $cond $then $else"
+            mknode "if $cond $then $else" $begin
         else
-            mknode "if $cond $then"
+            mknode "if $cond $then" $begin
         fi;;
 
     # 6.8.5 Iteration statements
     # 6.8.5.1 The while statement
     kw:while)
-        pos+=1
+        expect kw:while
         expect lparen
         parse_expr; local cond=$res
         expect rparen
         parse_statement; local body=$res
 
-        mknode "while $cond $body";;
+        mknode "while $cond $body" $begin;;
     # 6.8.5.2 The do statement
     kw:do)
-        pos+=1
+        expect kw:do
         parse_statement; local body=$res
         expect kw:while
         expect lparen
@@ -400,13 +405,13 @@ parse_statement() {
         expect rparen
         parse_semi
 
-        mknode "dowhile $body $cond";;
+        mknode "dowhile $body $cond" $begin;;
     # 6.8.5.3 The for statement
     kw:for)
-        pos+=1
+        expect kw:for
         expect lparen
         if peek semi; then
-            pos+=1
+            expect semi
             mknode "nothing"; local init=$res
         elif peek_declaration; then
             parse_declaration; local init=$res
@@ -432,51 +437,51 @@ parse_statement() {
         expect rparen
         parse_statement; local body=$res
 
-        mknode "for $cond $step $body"
+        mknode "for $cond $step $body" $begin
         mknode "compound $init $res";;
 
     # 6.8.6 Jump statements
     # 6.8.6.1 The goto statement
     kw:goto)
-        pos+=1
+        expect kw:goto
         local label_pos=$pos
         expect ident; local label=$expect_tokdata
         parse_semi
 
-        mknode "goto $label $label_pos";;
+        mknode "goto $label $label_pos" $begin;;
     # 6.8.6.2 The continue statement
     kw:continue)
         local -i continue_pos=$pos
-        pos+=1
+        expect kw:continue
         parse_semi
 
-        mknode "continue $continue_pos";;
+        mknode "continue $continue_pos" $begin;;
     # 6.8.6.3 The break statement
     kw:break)
         local -i break_pos=$pos
-        pos+=1
+        expect kw:break
         parse_semi
 
-        mknode "break $break_pos";;
+        mknode "break $break_pos" $begin;;
     # 6.8.6.4 The return statement
     kw:return)
-        pos+=1
+        expect kw:return
         parse_expr; local retval=$res
         parse_semi
 
-        mknode "return $retval";;
+        mknode "return $retval" $begin;;
 
     # 6.8.2 Compound statement
     lbrace) parse_compound;;
 
     # 6.8.3 Expression and null statements
     semi)
-        pos+=1
-        mknode "nothing";;
+        expect semi
+        mknode "nothing" $begin;;
     *)
         parse_expr; local expr=$res
         parse_semi
-        mknode "expr $expr";;
+        mknode "expr $expr" $begin;;
     esac
 }
 
@@ -550,14 +555,15 @@ check_expr_start() {
 parse_primary_expr() {
     check_expr_start
 
+    local begin=$pos
     case "${toktype[pos]}" in
     literal)
         expect literal
-        mknode "literal $expect_tokdata";;
+        mknode "literal $expect_tokdata" $begin;;
     ident)
         local ident_pos=$pos
         expect ident
-        mknode "var $expect_tokdata $ident_pos";;
+        mknode "var $expect_tokdata $ident_pos" $begin;;
     lparen)
         expect lparen
         parse_expr; local result=$res
@@ -573,6 +579,7 @@ parse_primary_expr() {
 
 # 6.5.2 Postfix operators
 parse_postfix_expr() {
+    local begin=$pos
     parse_primary_expr || return 1
 
     while has_tokens; do
@@ -580,11 +587,19 @@ parse_postfix_expr() {
 
         case "${toktype[pos]}" in
         lparen)
-            local paren_pos=$pos
             expect lparen
-            # TODO: parse argument list if present
+            local args=()
+            if ! peek rparen; then
+                parse_assignment_expr
+                args+=($res)
+                while peek comma; do
+                    expect comma
+                    parse_assignment_expr
+                    args+=($res)
+                done
+            fi
             expect rparen
-            mknode "call $lhs $paren_pos";;
+            mknode "call $lhs ${args[@]}" $begin;;
         *)
             break;;
         esac
