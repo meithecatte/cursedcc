@@ -269,7 +269,8 @@ parse_parameter_declaration() {
 
     if peek ident; then
         expect ident; local name="${expect_tokdata}"
-        mknode "param $ty $name" $begin
+        mknode "var $name"
+        mknode "param $ty $res" $begin
     else
         mknode "param $ty" $begin
     fi
@@ -520,14 +521,16 @@ parse_declaration() {
         local ident_pos=$pos
         expect ident
         local name="$expect_tokdata"
+        mknode "var $name" $ident_pos
+        local var=$res
 
         if peek assn; then
             expect assn
             parse_assignment_expr; local value=$res
-            mknode "declare_var $name $ident_pos $value"
+            mknode "declare_var $var $value"
             vars+=($res)
         else
-            mknode "declare_var $name $ident_pos"
+            mknode "declare_var $var"
             vars+=($res)
         fi
 
@@ -573,9 +576,8 @@ parse_primary_expr() {
         expect literal
         mknode "literal $expect_tokdata" $begin;;
     ident)
-        local ident_pos=$pos
         expect ident
-        mknode "var $expect_tokdata $ident_pos" $begin;;
+        mknode "var $expect_tokdata" $begin;;
     lparen)
         expect lparen
         parse_expr; local result=$res

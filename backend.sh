@@ -269,7 +269,7 @@ measure_params_stack() {
 
 # emit_prologue params
 emit_prologue() {
-    local -a params=(${ast[$1]}) param_pos=(${ast_pos[$1]})
+    local -a params=(${ast[$1]})
     local -i i=0
     for param_id in "${params[@]:1}"; do
         local -a param=(${ast[param_id]})
@@ -277,12 +277,13 @@ emit_prologue() {
             continue
         fi
 
-        local name="${param[2]}" pos="${param_pos[1]}"
+        local name_node="${param[2]}"
+        local name="${ast[name_node]#var }"
         if (( i < ${#abi_regs[@]} )); then
-            emit_declare_var "$name" "$pos"
-            emit_var_write "$name" "$pos" "${abi_regs[i]}"
+            emit_declare_var $name_node
+            emit_var_write $name_node ${abi_regs[i]}
         else
-            check_declare_var "$name" "$pos"
+            check_declare_var $name_node
             varmap["$name"]=$((8 * (i - 6) + 16))
         fi
         i+=1
@@ -417,21 +418,23 @@ emit_function() {
 }
 
 check_declare_var() {
-    local name="$1" pos="$2"
+    local node="$1"
+    local name="${ast[node]#var }"
     if [ -n "${vars_in_block[$name]-}" ]; then
         error "redefinition of \`$name\`"
-        show_token ${vars_in_block[$name]} "\`$name\` first defined here"
-        show_token $pos "\`$name\` redefined here"
+        show_node ${vars_in_block[$name]} "\`$name\` first defined here"
+        show_node $node "\`$name\` redefined here"
         end_diagnostic
     fi
 
-    vars_in_block[$name]=$pos
+    vars_in_block[$name]=$node
 }
 
-# emit_declare_var name pos
+# emit_declare_var node
 emit_declare_var() {
-    local name="$1" pos="$2"
-    check_declare_var "$name" "$pos"
+    local node="$1"
+    local name="${ast[node]#var }"
+    check_declare_var "$node"
 
     local -i var_size=4
     local -i stack_offset=$stack_used
@@ -440,31 +443,35 @@ emit_declare_var() {
 
     if (( stack_offset >= stack_max )); then
         internal_error "insufficient stack frame allocated"
-        show_token $pos "stack offset $stack_offset with stack frame $stack_max"
+        show_token $node "stack offset $stack_offset with stack frame $stack_max"
         end_diagnostic
         exit 1
     fi
 }
 
 check_var_exists() {
-    local name="$1" pos="$2"
+    local name="$1" node="$2"
     if [ -z "${varmap[$name]-}" ]; then
         error "cannot find value \`$name\` in this scope"
-        show_token $pos "not found in this scope"
+        show_token $node "not found in this scope"
         end_diagnostic
         return 1
     fi
 }
 
 emit_var_read() {
-    local name="$1" pos="$2" reg="$3"
-    check_var_exists "$name" "$pos" || return
+    local node="$1" reg="$2"
+    local name="${ast[node]#var }"
+    declare -p name
+    check_var_exists "$name" "$node" || return
     mov_reg_rbpoff "$reg" "${varmap[$name]}"
 }
 
 emit_var_write() {
-    local name="$1" pos="$2" reg="$3"
-    check_var_exists "$name" "$pos" || return
+    local node="$1" reg="$2"
+    local name="${ast[node]#var }"
+    declare -p name
+    check_var_exists "$name" "$node" || return
     mov_rbpoff_reg "${varmap[$name]}" "$reg"
 }
 
@@ -473,8 +480,7 @@ emit_lvalue_write() {
     local -a expr=(${ast[lvalue]})
     case ${expr[0]} in
     var)
-        local name="${expr[1]}" pos="${expr[2]}"
-        emit_var_write "$name" "$pos" "$reg";;
+        emit_var_write "$lvalue" "$reg";;
     *)  error "invalid left-hand side of assignment"
         show_token $assn_pos
         end_diagnostic;;
@@ -489,11 +495,11 @@ emit_statement() {
             for (( i=1; i < ${#stmt[@]}; i++ )); do
                 local node=${stmt[i]}
                 local -a decl=(${ast[node]})
-                local name=${decl[1]} pos=${decl[2]} value=${decl[3]-}
-                emit_declare_var $name $pos
+                local name=${decl[1]} value=${decl[2]-}
+                emit_declare_var $name
                 if [ -n "$value" ]; then
                     emit_expr $value
-                    emit_var_write $name $pos $EAX
+                    emit_var_write $name $EAX
                 fi
             done;;
         label)
@@ -618,13 +624,13 @@ cc_to_reg() {
 
 # emits code that puts the result in EAX
 emit_expr() {
-    local -a expr=(${ast[$1]}) pos=(${ast_pos[$1]})
+    local -a expr=(${ast[$1]})
     case ${expr[0]} in
         literal)
             mov_reg_imm $EAX ${expr[1]};;
         var)
             local name="${expr[1]}"
-            emit_var_read $name ${pos[0]} $EAX;;
+            emit_var_read $1 $EAX;;
         call)
             local lhs="${expr[1]}"
             local -a call_target=(${ast[lhs]})
