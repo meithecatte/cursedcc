@@ -265,15 +265,14 @@ measure_stack() {
         label)
             local label_name=${stmt[1]}
             local labeled_stmt=${stmt[2]}
-            local label_pos=${stmt[3]}
 
             if [ -n "${user_labels[$label_name]-}" ]; then
                 error "duplicate label \`$label_name\`"
-                show_token ${user_labels[$label_name]} "label first defined here"
-                show_token $label_pos "label redefined here"
+                show_node ${user_labels[$label_name]} "label first defined here"
+                show_node $1 "label redefined here"
                 end_diagnostic
             else
-                user_labels[$label_name]=$label_pos
+                user_labels[$label_name]=$1
             fi
 
             measure_stack $labeled_stmt;;
@@ -516,15 +515,15 @@ emit_statement() {
         continue)
             if [ -z "${innermost_continue-}" ]; then
                 error "\`continue\` can only be used within a loop"
-                show_token ${stmt[1]} "not in a loop"
+                show_node $1 "not in a loop"
                 end_diagnostic
             else
                 jmp $innermost_continue
             fi;;
         break)
             if [ -z "${innermost_break-}" ]; then
-                error "\`break\` can only be used within a loop or switch"
-                show_token ${stmt[1]} "not in a loop or switch"
+                error "\`break\` can only be used within a loop or a switch"
+                show_node $1 "not in a loop or a switch"
                 end_diagnostic
             else
                 jmp $innermost_break

@@ -173,7 +173,7 @@ declare -A functions
 
 # mknode node begin
 mknode() {
-    local end=$((pos - 1))
+    local end=${3-$((pos - 1))}
     local begin=${2-$end}
     res=${#ast[@]}
     ast+=("$1")
@@ -354,20 +354,21 @@ parse_statement() {
         return 1
     fi
 
+    local begin=$pos
+
     # 6.8.1 Labeled statements
     if (( pos + 1 < ${#toktype[@]} )) \
         && [[ "${toktype[pos]}" == "ident" ]] \
         && [[ "${toktype[pos+1]}" == "colon" ]]
     then
-        local label_pos=$pos
         expect ident; local label=$expect_tokdata
+        local end=$pos
         expect colon
         parse_statement
-        mknode "label $label $res $label_pos" $label_pos
+        mknode "label $label $res" $begin $end
         return
     fi
 
-    local begin=$pos
     case "${toktype[pos]}" in
     # 6.8.4 Selection statements
     # 6.8.4.1 The if statement
@@ -451,18 +452,16 @@ parse_statement() {
         mknode "goto $label $label_pos" $begin;;
     # 6.8.6.2 The continue statement
     kw:continue)
-        local -i continue_pos=$pos
         expect kw:continue
         parse_semi
 
-        mknode "continue $continue_pos" $begin;;
+        mknode "continue" $begin;;
     # 6.8.6.3 The break statement
     kw:break)
-        local -i break_pos=$pos
         expect kw:break
         parse_semi
 
-        mknode "break $break_pos" $begin;;
+        mknode "break" $begin;;
     # 6.8.6.4 The return statement
     kw:return)
         expect kw:return
@@ -619,6 +618,11 @@ parse_unary_expr() {
     esac
 }
 
+# Note: the finish_* parsers are necessary because of the grammar
+# of the assignment expressions: one would need to parse an unary_expr,
+# try to consume an assignment operator, and if that fails, backtrack
+# and parse a conditional_expr. Instead of backtracking, we call
+# finish_conditional_expr.
 finish_unary_expr() {
     :
 }
@@ -689,6 +693,7 @@ parse_conditional_expr() {
 }
 
 finish_conditional_expr() {
+    local begin=$pos
     finish_lor_expr; local cond=$res
 
     if peek question; then
@@ -696,12 +701,13 @@ finish_conditional_expr() {
         parse_expr; local yes=$res
         expect colon
         parse_conditional_expr; local no=$res
-        mknode "ternary $cond $yes $no"
+        mknode "ternary $cond $yes $no" $begin
     fi
 }
 
 # 6.5.17 Assignment operators
 parse_assignment_expr() {
+    local begin=$pos
     parse_unary_expr
     if ! has_tokens; then return; fi
 
@@ -710,7 +716,7 @@ parse_assignment_expr() {
         local lhs=$res op="${toktype[pos]}" assn_pos=$pos
         pos+=1
         parse_assignment_expr; local rhs=$res
-        mknode "$op $lhs $rhs $assn_pos";;
+        mknode "$op $lhs $rhs $assn_pos" $begin;;
     *)  finish_conditional_expr;;
     esac
 }
