@@ -184,9 +184,10 @@ has_tokens() {
 # spell_token token_type
 spell_token() {
     case $1 in
-    ident)  spelled="identifier";;
-    kw:*)   spelled="\`${1#kw:}\`";;
-    *)      spelled="\`${token_names["$1"]}\`";;
+    ident)   spelled="identifier";;
+    literal) spelled="literal";;
+    kw:*)    spelled="\`${1#kw:}\`";;
+    *)       spelled="\`${token_names["$1"]}\`";;
     esac
 }
 
@@ -229,13 +230,54 @@ parse() {
     done
 }
 
+# 6.7.6 Declarators
+parse_parameter_type_list() {
+    local param_list=()
+
+    parse_parameter_declaration
+    param_list+=($res)
+
+    while has_tokens && [ "${toktype[pos]}" == "comma" ]; do
+        expect comma
+        # TODO: handle ellipsis
+        parse_parameter_declaration
+        param_list+=($res)
+    done
+
+    mknode "params ${param_list[@]}"
+}
+
+# mvp grammar
+parse_parameter_declaration() {
+    local ty
+    case "${toktype[pos]}" in
+    kw:void) pos+=1; ty=void;;
+    kw:int)  pos+=1; ty=int;;
+    *)
+        spell_token "${toktype[pos]}"
+        error "expected \`int\` or \`void\`, found ${spelled}"
+        show_token $pos "type name expected here"
+        end_diagnostic
+        pos+=1
+        return
+    esac
+
+    if [ "${toktype[pos]}" == "ident" ]; then
+        expect ident; local name="${expect_tokdata}"
+        mknode "param $ty $name"
+    else
+        mknode "param $ty"
+    fi
+}
+
 parse_function() {
     expect kw:int
     local name_pos="$pos"
     expect ident
     local name="$expect_tokdata"
     expect lparen
-    expect kw:void
+    parse_parameter_type_list
+    local params="$res"
     expect rparen
 
     parse_compound
@@ -248,7 +290,7 @@ parse_function() {
         end_diagnostic
         return
     fi
-    functions[$name]="$res $name_pos"
+    functions[$name]="$res $name_pos $params"
 }
 
 # 6.8.2 Compound statement
