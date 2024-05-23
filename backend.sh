@@ -8,8 +8,10 @@ ESP=4; RSP=4
 EBP=5; RBP=5
 ESI=6
 EDI=7
+R8=8
+R9=9
 
-declare abi_regs=($EDI $ESI $EDX $ECX)
+declare abi_regs=($EDI $ESI $EDX $ECX $R8 $R9)
 
 CC_E=4
 CC_Z=4
@@ -26,15 +28,32 @@ CC_G=15
 declare code=""
 declare -a relocs=()
 
-modrm_reg() {
+# rex r b w
+rex() {
+    local r=$1 b=$2 w=${3-0}
+    local -i byte=0x40
+    (( w )) && (( byte |= 8 ))
+    (( r >= 8 )) && (( byte |= 4 ))
+    (( b >= 8 )) && (( byte |= 1 ))
+    if (( byte != 0x40 )); then
+        p8 code $byte
+    fi
+}
+
+op_modrm_reg() {
     # reg - register field
     # rm - r/m field (register index)
-    local reg="$1" rm="$2"
+    # wide - if nonzero, 64-bit data
+    local op="$1" reg="$2" rm="$3" wide="${4-0}"
+    rex $reg $rm $wide
+    code+="$op"
     p8 code $((0xc0 + 8 * reg + rm))
 }
 
-modrm_rbpoff() {
-    local reg="$1" offset="$2"
+op_modrm_rbpoff() {
+    local op="$1" reg="$2" offset="$3"
+    rex $reg 0
+    code+="$op"
     if (( -128 <= offset && offset <= 127 )); then
         p8 code $((0x45 + 8 * reg))
         p8 code $offset
@@ -54,133 +73,117 @@ ret() {
 
 mov_reg_imm() {
     local reg="$1" imm="$2"
+    (( reg < 8 )) || fail "TODO: load immediate into high reg"
     p8 code $((0xb8 + reg))
     p32 code "$imm"
 }
 
 mov_reg_reg() {
     local dst="$1" src="$2"
-    code+="\x89"
-    modrm_reg "$src" "$dst"
+    op_modrm_reg "\x89" "$src" "$dst"
 }
 
 mov_rbpoff_reg() {
     local offset="$1" src="$2"
-    code+="\x89"
-    modrm_rbpoff "$src" "$offset"
+    op_modrm_rbpoff "\x89" "$src" "$offset"
 }
 
 mov_reg_rbpoff() {
     local dst="$1" offset="$2"
-    code+="\x8b"
-    modrm_rbpoff "$dst" "$offset"
+    op_modrm_rbpoff "\x8b" "$dst" "$offset"
 }
 
 movq_reg_reg() {
     local dst="$1" src="$2"
-    code+="\x48\x89"
-    modrm_reg "$src" "$dst"
+    op_modrm_reg "\x89" "$src" "$dst" 1
 }
 
 not_reg() {
     local reg="$1"
-    code+="\xf7"
-    modrm_reg 2 "$reg"
+    op_modrm_reg "\xf7" 2 "$reg"
 }
 
 neg_reg() {
     local reg="$1"
-    code+="\xf7"
-    modrm_reg 3 "$reg"
+    op_modrm_reg "\xf7" 3 "$reg"
 }
 
 shl_reg_cl() {
     local reg="$1"
-    code+="\xd3"
-    modrm_reg 4 "$reg"
+    op_modrm_reg "\xd3" 4 "$reg"
 }
 
 shr_reg_cl() {
     local reg="$1"
-    code+="\xd3"
-    modrm_reg 5 "$reg"
+    op_modrm_reg "\xd3" 5 "$reg"
 }
 
 sar_reg_cl() {
     local reg="$1"
-    code+="\xd3"
-    modrm_reg 7 "$reg"
+    op_modrm_reg "\xd3" 7 "$reg"
 }
 
 push_reg() {
     local reg="$1"
+    (( reg < 8 )) || fail "TODO: push high reg"
     p8 code $((0x50 + reg))
 }
 
 pop_reg() {
     local reg="$1"
+    (( reg < 8 )) || fail "TODO: pop high reg"
     p8 code $((0x58 + reg))
 }
 
 add_reg_reg() {
     local dst="$1" src="$2"
-    code+="\x01"
-    modrm_reg "$src" "$dst"
+    op_modrm_reg "\x01" "$src" "$dst"
 }
 
 or_reg_reg() {
     local dst="$1" src="$2"
-    code+="\x09"
-    modrm_reg "$src" "$dst"
+    op_modrm_reg "\x09" "$src" "$dst"
 }
 
 and_reg_reg() {
     local dst="$1" src="$2"
-    code+="\x21"
-    modrm_reg "$src" "$dst"
+    op_modrm_reg "\x21" "$src" "$dst"
 }
 
 sub_reg_reg() {
     local dst="$1" src="$2"
-    code+="\x29"
-    modrm_reg "$src" "$dst"
+    op_modrm_reg "\x29" "$src" "$dst"
 }
 
 subq_reg_imm() {
     local dst="$1" imm="$2"
     if (( -128 <= imm && imm <= 127 )); then
-        code+="\x48\x83"
-        modrm_reg 5 "$dst"
+        op_modrm_reg "\x83" 5 "$dst" 1
         p8 code "$imm"
     else
-        code+="\x48\x81"
-        modrm_reg 5 "$dst"
+        op_modrm_reg "\x81" 5 "$dst" 1
         p32 code "$imm"
     fi
 }
 
 xor_reg_reg() {
     local dst="$1" src="$2"
-    code+="\x31"
-    modrm_reg "$src" "$dst"
+    op_modrm_reg "\x31" "$src" "$dst"
 }
 
 cmp_reg_reg() {
     local dst="$1" src="$2"
-    code+="\x39"
-    modrm_reg "$src" "$dst"
+    op_modrm_reg "\x39" "$src" "$dst"
 }
 
 test_reg_reg() {
     local dst="$1" src="$2"
-    code+="\x85"
-    modrm_reg "$src" "$dst"
+    op_modrm_reg "\x85" "$src" "$dst"
 }
 
 imul_reg_reg() {
     local dst="$1" src="$2"
-    code+="\x0f\xaf"
-    modrm_reg "$dst" "$src"
+    op_modrm_reg "\x0f\xaf" "$dst" "$src"
 }
 
 cdq() {
@@ -189,21 +192,19 @@ cdq() {
 
 idiv_reg() {
     local reg="$1"
-    code+="\xf7"
-    modrm_reg 7 "$reg"
+    op_modrm_reg "\xf7" 7 "$reg"
 }
 
 movzxb_reg_reg() {
     local dst="$1" src="$2"
-    code+="\x0f\xb6"
-    modrm_reg "$src" "$dst"
+    op_modrm_reg "\x0f\xb6" "$src" "$dst"
 }
 
 setcc_reg() {
     local cc="$1" dst="$2"
-    code+="\x0f"
-    p8 code $((0x90 + cc))
-    modrm_reg 0 "$dst"
+    local opcode="\x0f"
+    p8 opcode $((0x90 + cc))
+    op_modrm_reg "$opcode" 0 "$dst"
 }
 
 # jmp label
