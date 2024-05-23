@@ -29,6 +29,7 @@ SHF_ALLOC=2
 SHF_EXECINSTR=4
 
 R_X86_64_PC32=2
+R_X86_64_PLT32=4
 
 # addresses are 64 bit
 psz() {
@@ -88,6 +89,13 @@ collect_imports() {
     for reloc in "${relocations[@]}"; do
         local reloc_parts=($reloc)
         local section="${reloc_parts[0]}"
+        local symbol="${reloc_parts[2]}"
+
+        if [ -z "${symbol_sections[$symbol]-}" ]; then
+            symbol_sections[$symbol]=
+            symbol_offsets[$symbol]=0
+        fi
+
         # Make sure the relocation section exists so that it gets
         # included in section_order
         sections[.rela$section]+=""
@@ -115,10 +123,17 @@ build_symtab() {
     for symbol in "${!symbol_sections[@]}"; do
         local section="${symbol_sections[$symbol]}"
         local offset="${symbol_offsets[$symbol]}"
+        if [ -z "$section" ]; then
+            # imported symbol
+            local shndx=$SHN_UNDEF
+        else
+            local shndx=${section_index[$section]}
+        fi
+
         p32 symtab "${strtab_positions[$symbol]}" # st_name
         symtab+="\x10" # st_info: STB_GLOBAL, STT_NOTYPE
         symtab+="\x00" # st_other: reserved, 0
-        p16 symtab "${section_index[$section]}" # st_shndx
+        p16 symtab "$shndx" # st_shndx
         p64 symtab "$offset" # st_value
         p64 symtab 0 # st_size
         symtab_index[$symbol]=$symbol_count

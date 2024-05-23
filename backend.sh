@@ -231,7 +231,7 @@ call_symbol() {
     local -i pos
     code+="\xe8"
     binlength pos "$code"
-    reloc $1 $R_X86_64_PC32 -4
+    reloc $1 $R_X86_64_PLT32 -4
     p32 code 0
 }
 
