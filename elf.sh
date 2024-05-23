@@ -57,6 +57,16 @@ declare -A section_info
 declare -A symbol_sections
 declare -A symbol_offsets
 
+# List of all relocations that should be included in the output file.
+# Each entry is a string with the following fields separated by spaces:
+# - position of the relocation:
+#   - section
+#   - offset
+# - target symbol
+# - type of relocation
+# - addend
+declare -a relocations
+
 # build_stringtable section_name out_array entries...
 build_stringtable() {
     local section="$1"
@@ -75,7 +85,7 @@ build_stringtable() {
 }
 
 collect_imports() {
-    for reloc in "${relocs[@]}"; do
+    for reloc in "${relocations[@]}"; do
         local reloc_parts=($reloc)
         local section="${reloc_parts[0]}"
         # Make sure the relocation section exists so that it gets
@@ -124,7 +134,7 @@ build_symtab() {
 build_relocs() {
     local -A reloc_sections
 
-    for reloc in "${relocs[@]}"; do
+    for reloc in "${relocations[@]}"; do
         local reloc_parts=($reloc)
         local section="${reloc_parts[0]}"
         local offset="${reloc_parts[1]}"

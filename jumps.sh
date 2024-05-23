@@ -7,6 +7,9 @@ clear_labels() {
     # List of all the labels in declaration order.
     declare -ga  label_order=()
 
+    # The target symbol, relocation type and addend of each relocation.
+    declare -ga reloc_target=()
+
     # Effectively a list of jumps, indexed by how many jumps there are
     # in the function. Sorted by position, by construction.
     #
@@ -17,6 +20,12 @@ clear_labels() {
     declare -ga  jump_target=()
     # The condition code of the jump, if any.
     declare -ga  jump_condition=()
+}
+
+reloc() {
+    local -i i=${#reloc_target[@]}
+    label __reloc$i
+    reloc_target+=("$*")
 }
 
 # Creates a new label at the current position in the code.
@@ -250,4 +259,10 @@ resolve_jumps() {
 
     output+="${code:4*inpos}"
     code="$output"
+
+    # Adjust the relocations
+    for (( i = 0; i < ${#reloc_target[@]}; i++ )); do
+        local -i pos="${label_actual_position[__reloc$i]}"
+        relocations+=(".text $((function_pos + pos)) ${reloc_target[i]}")
+    done
 }

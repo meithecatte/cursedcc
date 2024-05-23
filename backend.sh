@@ -1,3 +1,7 @@
+# NOTE: the label resolver assumes that all bytes in "$code" are encoded
+# as four characters (backslash, x, and two hexdigits). So don't get clever
+# with octal or \n or whatever else.
+
 STACK_ALIGNMENT=16
 
 EAX=0
@@ -21,12 +25,6 @@ CC_L=12
 CC_GE=13
 CC_LE=14
 CC_G=15
-
-# NOTE: the label resolver assumes that all bytes in "$code" are encoded
-# as four characters (backslash, x, and two hexdigits). So don't get clever
-# with octal or \n or whatever else.
-declare code=""
-declare -a relocs=()
 
 # rex r b w
 rex() {
@@ -233,7 +231,7 @@ call_symbol() {
     local -i pos
     code+="\xe8"
     binlength pos "$code"
-    relocs+=(".text $((function_pos + pos)) $1 $R_X86_64_PC32 -4")
+    reloc $1 $R_X86_64_PC32 -4
     p32 code 0
 }
 
@@ -374,7 +372,7 @@ emit_function() {
     symbol_sections["$fname"]=.text
     symbol_offsets["$fname"]=$function_pos
 
-    code=""
+    local code=""
     push_reg $RBP
     movq_reg_reg $RBP $RSP
 
