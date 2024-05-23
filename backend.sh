@@ -6,6 +6,10 @@ EDX=2
 EBX=3
 ESP=4; RSP=4
 EBP=5; RBP=5
+ESI=6
+EDI=7
+
+declare abi_regs=($EDI $ESI $EDX $ECX)
 
 CC_E=4
 CC_Z=4
@@ -222,6 +226,7 @@ call_symbol() {
 }
 
 # AST traversal starts here
+# measure_params_stack params
 measure_params_stack() {
     local -a params=(${ast[$1]})
     for param_id in "${params[@]:1}"; do
@@ -248,6 +253,26 @@ measure_params_stack() {
         else
             local -i var_size=4
             stack_used+=$var_size
+        fi
+    done
+}
+
+# emit_prologue params
+emit_prologue() {
+    local -a params=(${ast[$1]}) pos=(${ast_pos[$1]})
+    local -i i=0
+    for param_id in "${params[@]:1}"; do
+        local -a param=(${ast[param_id]})
+        if [ "${param[1]}" == void ]; then
+            continue
+        fi
+
+        if (( i < ${#abi_regs[@]} )); then
+            emit_declare_var "${param[2]}" "${pos[1]}"
+            emit_var_write "${param[2]}" "${pos[1]}" "${abi_regs[i]}"
+            i+=1
+        else
+            fail "TODO more parameter regs"
         fi
     done
 }
@@ -319,6 +344,7 @@ emit_function() {
     local -iA user_labels=()
 
     measure_stack $node
+    stack_used=0
 
     echo "$fname has $stack_max bytes of local variables"
 
@@ -346,6 +372,7 @@ emit_function() {
     local -A varmap=()
     # name -> declaring token (the ones that can be shadowed are not included)
     local -A vars_in_block=()
+    emit_prologue $params
 
     emit_statement $node
 
@@ -362,6 +389,7 @@ emit_function() {
     sections[.text]+="$code"
 }
 
+# emit_declare_var name pos
 emit_declare_var() {
     local name="$1" pos="$2"
     if [ -n "${vars_in_block[$name]-}" ]; then
@@ -574,6 +602,20 @@ emit_expr() {
                 end_diagnostic
                 return
             fi
+
+            local -i i
+            for (( i=${#expr[@]} - 1; i >= 2; i-- )); do
+                emit_expr ${expr[i]}
+                push_reg $EAX
+            done
+
+            for (( i=0; i < ${#expr[@]} - 2; i++ )); do
+                if (( i < ${#abi_regs[@]} )); then
+                    pop_reg ${abi_regs[i]}
+                else
+                    break
+                fi
+            done
 
             call_symbol "${call_target[1]}";;
         assn)
