@@ -641,6 +641,22 @@ emit_expr() {
                 return
             fi
 
+            local callee="${call_target[1]}"
+
+            if [ -n "${varmap[$callee]-}" ]; then
+                error "cannot call local variable"
+                show_node $lhs "\`$callee\` refers to a local variable, not a function"
+                end_diagnostic
+                return
+            fi
+
+            if [ -z "${global_namespace[$callee]-}" ]; then
+                error "call to undeclared function \`$callee\`"
+                show_node $lhs "\`$callee\` has not been declared yet"
+                end_diagnostic
+                return
+            fi
+
             local -i i
             for (( i=${#expr[@]} - 1; i >= 2; i-- )); do
                 emit_expr ${expr[i]}
@@ -656,7 +672,7 @@ emit_expr() {
                 fi
             done
 
-            call_symbol "${call_target[1]}"
+            call_symbol "$callee"
 
             if (( num_args > ${#abi_regs[@]} )); then
                 addq_reg_imm $RSP $((8 * (num_args - ${#abi_regs[@]})))
