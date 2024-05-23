@@ -343,10 +343,7 @@ measure_stack() {
 }
 
 emit_function() {
-    local fname="$1"
-    local function_def=(${functions[$fname]})
-    local -i node=${function_def[0]}
-    local params=${function_def[2]}
+    local fname="$1" params="$2" body="$3"
 
     local -i stack_used=0
     measure_params_stack $params
@@ -355,7 +352,7 @@ emit_function() {
     # Maps goto-labels to the positions at which they were defined
     local -iA user_labels=()
 
-    measure_stack $node
+    measure_stack $body
     stack_used=0
 
     echo "$fname has $stack_max bytes of local variables"
@@ -399,15 +396,15 @@ emit_function() {
     # space, the scopes might overlap. If so, the scope of one entity (the
     # inner scope) will end strictly before the scope of the other entity (the
     # outer scope).
-    local body=(${ast[node]})
-    if [[ "${body[0]}" != "compound" ]]; then
+    local stmts=(${ast[body]})
+    if [[ "${stmts[0]}" != "compound" ]]; then
         internal_error "expected function body to be a compound node"
-        show_node $node "this is a ${body[0]}"
+        show_node $body "this is a ${stmts[0]}"
         end_diagnostic
         exit 1
     fi
 
-    for stmt in "${body[@]:1}"; do
+    for stmt in "${stmts[@]:1}"; do
         emit_statement $stmt
     done
 

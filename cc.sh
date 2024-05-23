@@ -44,23 +44,13 @@ else
     lex "$filename" < <(cc -E "$filename")
 fi
 
-parse
-
-if (( error_count > 0 )); then
-    exit 1
-fi
-
-declare -p functions
-declare -p ast
-declare -p ast_pos
-
 sections[.text]=""
 section_types[.text]="$SHT_PROGBITS"
 section_attrs[.text]=$((SHF_ALLOC | SHF_EXECINSTR))
 
-for function in "${!functions[@]}"; do
-    emit_function "$function"
-done
+parse
+
+declare -p ast
 
 if (( error_count > 0 )); then
     exit 1

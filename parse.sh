@@ -169,6 +169,7 @@ show_tokens() {
 
 declare -i pos=0
 declare -a ast=() ast_pos=()
+declare -A global_namespace=()
 declare -A functions
 
 # mknode node begin
@@ -275,8 +276,8 @@ parse_parameter_declaration() {
 }
 
 parse_function() {
+    local begin="$pos"
     expect kw:int
-    local name_pos="$pos"
     expect ident
     local name="$expect_tokdata"
     expect lparen
@@ -284,17 +285,24 @@ parse_function() {
     local params="$res"
     expect rparen
 
+    mknode "fundecl int $params" $begin
+    local fundecl="$res"
+
     parse_compound
+    local body="$res"
 
     if [ -n "${functions[$name]-}" ]; then
         error "function \`$name\` is defined twice"
-        local previous=(${functions[$name]})
-        show_token ${previous[1]} "\`$name\` first defined here"
-        show_token $name_pos "\`$name\` redefined here"
+        show_node ${global_namespace[$name]} "\`$name\` first defined here"
+        show_node $fundecl "\`$name\` redefined here"
         end_diagnostic
         return
     fi
-    functions[$name]="$res $name_pos $params"
+
+    global_namespace[$name]=$fundecl
+
+    functions[$name]="$body"
+    emit_function $name $params $body
 }
 
 # 6.8.2 Compound statement
