@@ -36,6 +36,9 @@ label() {
         position=position-2
         code="${code:0:4*position}"
         did_fallthrough=1
+        if [ -n "${DEBUG_JUMPS-}" ]; then
+            echo "fallthrough at $1"
+        fi
     done
 
     # This handles the case when other labels have been defined between

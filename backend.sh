@@ -155,6 +155,17 @@ sub_reg_reg() {
     op_modrm_reg "\x29" "$src" "$dst"
 }
 
+addq_reg_imm() {
+    local dst="$1" imm="$2"
+    if (( -128 <= imm && imm <= 127 )); then
+        op_modrm_reg "\x83" 0 "$dst" 1
+        p8 code "$imm"
+    else
+        op_modrm_reg "\x81" 0 "$dst" 1
+        p32 code "$imm"
+    fi
+}
+
 subq_reg_imm() {
     local dst="$1" imm="$2"
     if (( -128 <= imm && imm <= 127 )); then
@@ -618,7 +629,8 @@ emit_expr() {
                 push_reg $EAX
             done
 
-            for (( i=0; i < ${#expr[@]} - 2; i++ )); do
+            local num_args=$((${#expr[@]} - 2))
+            for (( i=0; i < num_args; i++ )); do
                 if (( i < ${#abi_regs[@]} )); then
                     pop_reg ${abi_regs[i]}
                 else
@@ -626,7 +638,11 @@ emit_expr() {
                 fi
             done
 
-            call_symbol "${call_target[1]}";;
+            call_symbol "${call_target[1]}"
+
+            if (( num_args > ${#abi_regs[@]} )); then
+                addq_reg_imm $RSP $((8 * (num_args - ${#abi_regs[@]})))
+            fi;;
         assn)
             emit_expr ${expr[2]}
             emit_lvalue_write ${expr[1]} $EAX ${expr[3]};;
