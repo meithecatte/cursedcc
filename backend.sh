@@ -20,6 +20,7 @@ CC_G=15
 # as four characters (backslash, x, and two hexdigits). So don't get clever
 # with octal or \n or whatever else.
 declare code=""
+declare -a relocs=()
 
 modrm_reg() {
     # reg - register field
@@ -211,6 +212,15 @@ jcc() {
     jump "$2" "$1"
 }
 
+# call symbol
+call_symbol() {
+    local -i pos
+    code+="\xe8"
+    binlength pos "$code"
+    relocs+=(".text $((function_pos + pos)) $1 $R_X86_64_PC32 -4")
+    p32 code 0
+}
+
 # AST traversal starts here
 
 # measure_stack stmt
@@ -288,10 +298,10 @@ emit_function() {
     echo "rounding up to $stack_max"
 
     clear_labels
-    local -i pos label_counter=0
-    binlength pos "${sections[.text]}"
+    local -i function_pos label_counter=0
+    binlength function_pos "${sections[.text]}"
     symbol_sections["$fname"]=.text
-    symbol_offsets["$fname"]=$pos
+    symbol_offsets["$fname"]=$function_pos
 
     code=""
     push_reg $RBP
@@ -524,6 +534,17 @@ emit_expr() {
         var)
             local name="${expr[1]}" pos="${expr[2]}"
             emit_var_read $name $pos $EAX;;
+        call)
+            local lhs="${expr[1]}" pos="${expr[2]}"
+            local -a call_target=(${ast[lhs]})
+            if [ "${call_target[0]}" != "var" ]; then
+                error "indirect calls are not supported"
+                show_token $pos "calm thy unhingedness"
+                end_diagnostic
+                return
+            fi
+
+            call_symbol "${call_target[1]}";;
         assn)
             emit_expr ${expr[2]}
             emit_lvalue_write ${expr[1]} $EAX ${expr[3]};;

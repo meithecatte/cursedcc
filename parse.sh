@@ -494,7 +494,7 @@ check_expr_start() {
     esac
 }
 
-# 6.5.1 Primary expressions Primary expressions
+# 6.5.1 Primary expressions
 parse_primary_expr() {
     check_expr_start
 
@@ -519,6 +519,26 @@ parse_primary_expr() {
     esac
 }
 
+# 6.5.2 Postfix operators
+parse_postfix_expr() {
+    parse_primary_expr || return 1
+
+    while has_tokens; do
+        local lhs=$res
+
+        case "${toktype[pos]}" in
+        lparen)
+            local paren_pos=$pos
+            expect lparen
+            # TODO: parse argument list if present
+            expect rparen
+            mknode "call $lhs $paren_pos";;
+        *)
+            break;;
+        esac
+    done
+}
+
 # 6.5.3 Unary operators
 parse_unary_expr() {
     check_expr_start
@@ -528,7 +548,7 @@ parse_unary_expr() {
     minus)  pos+=1; parse_unary_expr; mknode "negate $res";;
     bnot)   pos+=1; parse_unary_expr; mknode "bnot $res";;
     lnot)   pos+=1; parse_unary_expr; mknode "lnot $res";;
-    *)      parse_primary_expr;;
+    *)      parse_postfix_expr;;
     esac
 }
 

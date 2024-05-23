@@ -21,18 +21,25 @@ SHN_UNDEF=0
 SHT_PROGBITS=1
 SHT_SYMTAB=2
 SHT_STRTAB=3
+SHT_RELA=4
+SHT_REL=9
 
 SHF_WRITE=1
 SHF_ALLOC=2
 SHF_EXECINSTR=4
+
+R_X86_64_PC32=2
 
 # addresses are 64 bit
 psz() {
     p64 "$@"
 }
 
-# Maps the section name to its index in the section header table.
+# Maps the section name to its index in the section header table
 declare -iA section_index
+
+# Maps the symbol name to its index in the symbol table
+declare -iA symtab_index
 
 # Maps the section name to the data it should contain
 declare -A sections
@@ -42,6 +49,9 @@ declare -A section_types
 
 # Maps the section name to its sh_flags
 declare -A section_attrs
+
+# Maps the section name to its sh_info
+declare -A section_info
 
 # Maps the names of defined symbols to their positions
 declare -A symbol_sections
@@ -64,6 +74,16 @@ build_stringtable() {
     section_types[$section]="$SHT_STRTAB"
 }
 
+collect_imports() {
+    for reloc in "${relocs[@]}"; do
+        local reloc_parts=($reloc)
+        local section="${reloc_parts[0]}"
+        # Make sure the relocation section exists so that it gets
+        # included in section_order
+        sections[.rela$section]+=""
+    done
+}
+
 build_symtab() {
     local -iA strtab_positions
     # Table of symbol names
@@ -81,6 +101,7 @@ build_symtab() {
         symtab+="\x00"
     done
 
+    local -i symbol_count=1
     for symbol in "${!symbol_sections[@]}"; do
         local section="${symbol_sections[$symbol]}"
         local offset="${symbol_offsets[$symbol]}"
@@ -90,15 +111,44 @@ build_symtab() {
         p16 symtab "${section_index[$section]}" # st_shndx
         p64 symtab "$offset" # st_value
         p64 symtab 0 # st_size
+        symtab_index[$symbol]=$symbol_count
+        symbol_count+=1
     done
 
     sections[.symtab]="$symtab"
     section_types[.symtab]="$SHT_SYMTAB"
+    # We don't emit any local symbols apart from the NULL at the very start
+    section_info[.symtab]=1
+}
+
+build_relocs() {
+    local -A reloc_sections
+
+    for reloc in "${relocs[@]}"; do
+        local reloc_parts=($reloc)
+        local section="${reloc_parts[0]}"
+        local offset="${reloc_parts[1]}"
+        local symbol="${reloc_parts[2]}"
+        local rtype="${reloc_parts[3]}"
+        local addend="${reloc_parts[4]}"
+        p64 reloc_sections[$section] $offset
+        p32 reloc_sections[$section] $rtype
+        p32 reloc_sections[$section] ${symtab_index[$symbol]}
+        p64 reloc_sections[$section] $addend
+    done
+
+    for section in "${!reloc_sections[@]}"; do
+        sections[.rela$section]="${reloc_sections[$section]}"
+        section_types[.rela$section]="$SHT_RELA"
+        section_info[.rela$section]="${section_index[$section]}"
+    done
 }
 
 # emit_elf filename
 emit_elf() {
     local filename="$1"
+
+    collect_imports
 
     # Iteration order of bash's associative arrays is not stable. Pick one
     # ordering and stick to it.
@@ -114,6 +164,7 @@ emit_elf() {
     done
 
     build_symtab
+    build_relocs
 
     # Table of section names
     local -iA shstrtab_positions
@@ -144,9 +195,13 @@ emit_elf() {
         if (( section_types["$section_name"] == SHT_SYMTAB )); then
             entsize=24
             link=${section_index[.strtab]}
+        elif (( section_types["$section_name"] == SHT_RELA )); then
+            entsize=24
+            link=${section_index[.symtab]}
         fi
+
         p32 section_headers $link # sh_link
-        p32 section_headers 0 # sh_info
+        p32 section_headers "${section_info[$section_name]-0}" # sh_info
         psz section_headers 0 # sh_addralign
         psz section_headers $entsize # sh_entsize
         section_data+="$section"
