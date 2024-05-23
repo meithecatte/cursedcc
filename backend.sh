@@ -386,7 +386,30 @@ emit_function() {
     local -A vars_in_block=()
     emit_prologue $params
 
-    emit_statement $node
+    # Variables defined at the top level of the function are part of the same
+    # scope as the parameters, and the former are not allowed to shadow
+    # the latter. Hence, we need to manually iterate over the body of
+    # the function, instead of calling `emit_statement` on the `compound` node.
+    #
+    # 6.2.1.4. [...] If the declarator or type specifier that declares the
+    # identifier appears inside a block or within the list of parameter
+    # declarations in a function definition, the identifier has block scope,
+    # which terminates at the end of the associated block. [...]
+    # If an identifier designates two different entities in the same name
+    # space, the scopes might overlap. If so, the scope of one entity (the
+    # inner scope) will end strictly before the scope of the other entity (the
+    # outer scope).
+    local body=(${ast[node]})
+    if [[ "${body[0]}" != "compound" ]]; then
+        internal_error "expected function body to be a compound node"
+        show_node $node "this is a ${body[0]}"
+        end_diagnostic
+        exit 1
+    fi
+
+    for stmt in "${body[@]:1}"; do
+        emit_statement $stmt
+    done
 
     # by default, main should return 0
     if [[ "$fname" == "main" ]]; then
