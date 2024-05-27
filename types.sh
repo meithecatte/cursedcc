@@ -26,6 +26,18 @@ check_param_list() {
                 return
             fi
         fi
+
+        if [ -n "$var" ]; then
+            local name="${ast[var]#var }"
+            if [ -n "${names_used["$name"]-}" ]; then
+                error "redefinition of parameter \`$name\`"
+                show_node ${names_used["$name"]} "\`$name\` first defined here"
+                show_node $param_id "\`$name\` redefined here"
+                end_diagnostic
+            else
+                names_used["$name"]=$param_id
+            fi
+        fi
     done
 
     mknode "params ${param_list[*]}" $begin
