@@ -16,6 +16,7 @@ R8=8
 R9=9
 
 declare abi_regs=($EDI $ESI $EDX $ECX $R8 $R9)
+declare num_abi_regs=${#abi_regs[@]}
 
 CC_E=4
 CC_Z=4
@@ -239,7 +240,7 @@ call_symbol() {
 # measure_params_stack params
 measure_params_stack() {
     local -a params=(${ast[$1]})
-    for param_id in "${params[@]:1}"; do
+    for param_id in "${params[@]:1:num_abi_regs+1}"; do
         local -a param=(${ast[param_id]})
         if (( ${#param[@]} < 3 )) && [ "${param[1]}" != void ]; then
             error "missing name for parameter"
