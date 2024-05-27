@@ -25,13 +25,6 @@ check_param_list() {
                 mknode "params" $begin
                 return
             fi
-        else
-            if [ -z "$var" ]; then
-                error "missing name for parameter"
-                show_node $param_id "parameter name omitted"
-                end_diagnostic
-                continue
-            fi
         fi
     done
 

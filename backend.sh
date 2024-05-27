@@ -253,7 +253,15 @@ emit_prologue() {
     local -i i=0
     for param_id in "${params[@]:1}"; do
         local -a param=(${ast[param_id]})
-        local var="${param[2]}"
+        local var="${param[2]-}"
+
+        if [ -z "$var" ]; then
+            error "missing name for parameter"
+            show_node $param_id "parameter name omitted"
+            end_diagnostic
+            continue
+        fi
+
         local name="${ast[var]#var }"
         if (( i < num_abi_regs )); then
             emit_declare_var $var
