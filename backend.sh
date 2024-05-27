@@ -427,7 +427,7 @@ emit_declare_var() {
 
     if (( stack_offset >= stack_max )); then
         internal_error "insufficient stack frame allocated"
-        show_token $node "stack offset $stack_offset with stack frame $stack_max"
+        show_node $node "stack offset $stack_offset with stack frame $stack_max"
         end_diagnostic
         exit 1
     fi
@@ -437,7 +437,7 @@ check_var_exists() {
     local name="$1" node="$2"
     if [ -z "${varmap[$name]-}" ]; then
         error "cannot find value \`$name\` in this scope"
-        show_token $node "not found in this scope"
+        show_node $node "not found in this scope"
         end_diagnostic
         return 1
     fi
