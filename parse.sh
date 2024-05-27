@@ -235,6 +235,13 @@ parse() {
 }
 
 # 6.7.6 Declarators
+# parameter-type-list:
+#     parameter-list
+#     parameter-list , ...
+#
+# parameter-list:
+#     parameter-declaration
+#     parameter-list , parameter-declaration
 parse_parameter_type_list() {
     local param_list=()
     local begin=$pos
@@ -249,7 +256,7 @@ parse_parameter_type_list() {
         param_list+=($res)
     done
 
-    mknode "params ${param_list[*]}" $begin
+    check_param_list "${param_list[@]}"
 }
 
 # mvp grammar
@@ -282,6 +289,7 @@ parse_function() {
     expect ident
     local name="$expect_tokdata"
     expect lparen
+    # TODO: parse foo() as foo(unspecified)
     parse_parameter_type_list
     local params="$res"
     expect rparen

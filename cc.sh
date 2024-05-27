@@ -9,6 +9,7 @@ SELFDIR="$(dirname -- "${BASH_SOURCE[0]}")"
 . "$SELFDIR/parse.sh"
 . "$SELFDIR/elf.sh"
 . "$SELFDIR/jumps.sh"
+. "$SELFDIR/types.sh"
 . "$SELFDIR/backend.sh"
 
 declare objonly=0 preprocessed=0

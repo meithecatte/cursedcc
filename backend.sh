@@ -242,29 +242,8 @@ measure_params_stack() {
     local -a params=(${ast[$1]})
     for param_id in "${params[@]:1:num_abi_regs+1}"; do
         local -a param=(${ast[param_id]})
-        if (( ${#param[@]} < 3 )) && [ "${param[1]}" != void ]; then
-            error "missing name for parameter"
-            show_node $param_id "parameter name omitted"
-            end_diagnostic
-            continue
-        fi
-
-        if [ "${param[1]}" == void ]; then
-            if (( ${#param[@]} == 3 )); then
-                error "invalid type for parameter"
-                show_node $param_id "parameter cannot have type \`void\`"
-                end_diagnostic
-                continue
-            elif (( ${#params[@]} != 2 )); then
-                error "\`void\` must be the only parameter"
-                show_node $param_id "\`void\` must be the only parameter"
-                end_diagnostic
-                continue
-            fi
-        else
-            local -i var_size=4
-            stack_used+=$var_size
-        fi
+        local -i var_size=4
+        stack_used+=$var_size
     done
 }
 
@@ -274,17 +253,13 @@ emit_prologue() {
     local -i i=0
     for param_id in "${params[@]:1}"; do
         local -a param=(${ast[param_id]})
-        if [ "${param[1]}" == void ]; then
-            continue
-        fi
-
-        local name_node="${param[2]}"
-        local name="${ast[name_node]#var }"
-        if (( i < ${#abi_regs[@]} )); then
-            emit_declare_var $name_node
-            emit_var_write $name_node ${abi_regs[i]}
+        local var="${param[2]}"
+        local name="${ast[var]#var }"
+        if (( i < num_abi_regs )); then
+            emit_declare_var $var
+            emit_var_write $var ${abi_regs[i]}
         else
-            check_declare_var $name_node
+            check_declare_var $var
             varmap["$name"]=$((8 * (i - 6) + 16))
         fi
         i+=1
@@ -463,7 +438,6 @@ check_var_exists() {
 emit_var_read() {
     local node="$1" reg="$2"
     local name="${ast[node]#var }"
-    declare -p name
     check_var_exists "$name" "$node" || return
     mov_reg_rbpoff "$reg" "${varmap[$name]}"
 }
@@ -471,7 +445,6 @@ emit_var_read() {
 emit_var_write() {
     local node="$1" reg="$2"
     local name="${ast[node]#var }"
-    declare -p name
     check_var_exists "$name" "$node" || return
     mov_rbpoff_reg "${varmap[$name]}" "$reg"
 }
