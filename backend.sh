@@ -625,21 +625,48 @@ emit_expr() {
 
             local callee="${call_target[1]}"
 
-            if [ -n "${varmap[$callee]-}" ]; then
+            if [ -n "${varmap["$callee"]-}" ]; then
                 error "cannot call local variable"
                 show_node $lhs "\`$callee\` refers to a local variable, not a function"
                 end_diagnostic
                 return
             fi
 
-            if [ -z "${global_namespace[$callee]-}" ]; then
+            local fundecl_node=${global_namespace["$callee"]-}
+            if [ -z "$fundecl_node" ]; then
                 error "call to undeclared function \`$callee\`"
                 show_node $lhs "\`$callee\` has not been declared yet"
                 end_diagnostic
                 return
             fi
 
+            local fundecl=(${ast[fundecl_node]})
+            if [[ "$fundecl" != "fundecl" ]]; then
+                error "\`$callee\` is not a function"
+                show_node $lhs "not a function"
+                show_node $fundecl_node "\`$callee\` declared here"
+                end_diagnostic
+                return
+            fi
+
+            local params=(${ast[fundecl[2]]})
+            local num_params=$((${#params[@]} - 1))
+
             local num_args=$((${#expr[@]} - 2))
+
+            if (( num_args != num_params )); then
+                if (( num_args > num_params )); then
+                    error "too many arguments for call to \`$callee\`"
+                else
+                    error "not enough arguments for call to \`$callee\`"
+                fi
+
+                show_node $1 "$num_args arguments provided to \`$callee\`"
+                show_node $fundecl_node \
+                    "\`$callee\` declared with $num_params parameters"
+                end_diagnostic
+            fi
+
             local -i i num_stack_args=0
             if (( num_args > num_abi_regs )); then
                 (( num_stack_args = num_args - num_abi_regs ))

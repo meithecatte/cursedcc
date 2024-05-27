@@ -169,6 +169,7 @@ show_tokens() {
 
 declare -i pos=0
 declare -a ast=() ast_pos=()
+# Maps to declaration nodes
 declare -A global_namespace=()
 declare -A functions
 
