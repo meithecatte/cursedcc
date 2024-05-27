@@ -639,15 +639,26 @@ emit_expr() {
                 return
             fi
 
-            local -i i
+            local num_args=$((${#expr[@]} - 2))
+            local -i i num_stack_args=0
+            if (( num_args > num_abi_regs )); then
+                (( num_stack_args = num_args - num_abi_regs ))
+            fi
+
+            local -i arg_space=$((8 * num_stack_args))
+
+            if (( num_stack_args % 2 )); then
+                subq_reg_imm $RSP 8
+                arg_space+=8
+            fi
+
             for (( i=${#expr[@]} - 1; i >= 2; i-- )); do
                 emit_expr ${expr[i]}
                 push_reg $EAX
             done
 
-            local num_args=$((${#expr[@]} - 2))
             for (( i=0; i < num_args; i++ )); do
-                if (( i < ${#abi_regs[@]} )); then
+                if (( i < num_abi_regs )); then
                     pop_reg ${abi_regs[i]}
                 else
                     break
@@ -656,8 +667,8 @@ emit_expr() {
 
             call_symbol "$callee"
 
-            if (( num_args > ${#abi_regs[@]} )); then
-                addq_reg_imm $RSP $((8 * (num_args - ${#abi_regs[@]})))
+            if (( num_args > num_abi_regs )); then
+                addq_reg_imm $RSP $arg_space
             fi;;
         assn)
             emit_expr ${expr[2]}
