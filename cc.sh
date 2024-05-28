@@ -42,7 +42,7 @@ if (( preprocessed == 1 )); then
 else
     # A normal pipeline will run `lex` in a subprocess, losing the ability
     # to modify our variables
-    lex "$filename" < <(cc -E "$filename")
+    lex "$filename" < <(cpp "$filename")
 fi
 
 sections[.text]=""
