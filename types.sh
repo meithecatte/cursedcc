@@ -22,7 +22,9 @@ scope_insert() {
     local name="$1" node="$2"
     if (( in_function )); then
         # TODO: merge declarations if allowed
-        if [ -n "${vars_in_block[$name]-}" ]; then
+        if [ -n "${vars_in_block[$name]-}" ] && \
+            ! check_redeclaration "${block_scope[$name]}" "$node" "$name"
+        then
             error "redefinition of \`$name\`"
             show_node ${vars_in_block[$name]} "\`$name\` first defined here"
             show_node $node "\`$name\` redefined here"
@@ -33,7 +35,9 @@ scope_insert() {
         vars_in_block[$name]=$node
         block_scope[$name]=$node
     else
-        if [ -n "${file_scope[$name]-}" ]; then
+        if [ -n "${file_scope[$name]-}" ] && \
+            ! check_redeclaration "${file_scope[$name]}" "$node" "$name"
+        then
             error "redefinition of \`$name\`"
             show_node ${file_scope[$name]} "\`$name\` first defined here"
             show_node $node "\`$name\` redefined here"
@@ -43,6 +47,32 @@ scope_insert() {
 
         file_scope[$name]=$node
     fi
+}
+
+# check_redeclaration prev_node cur_node name
+check_redeclaration() {
+    local previous=(${ast[$1]}) current=(${ast[$2]}) name="$3"
+    case $previous,$current in
+    fundecl,fundecl)
+        local previous_params=(${ast[previous[2]]})
+        local current_params=(${ast[current[2]]})
+        local previous_count=$((${#previous_params[@]} - 1))
+        local current_count=$((${#current_params[@]} - 1))
+        # TODO: do more exhaustive checks once we support more types
+        if (( previous_count != current_count )); then
+            error "conflicting declarations of \`$name\`"
+            show_node $1 "\`$name\` defined here with $previous_count parameters"
+            show_node $2 "\`$name\` redefined with $current_count parameters"
+            end_diagnostic
+            return # don't emit further diagnostics in scope_insert
+        fi
+
+        return;;
+    declare_var,declare_var)
+        (( !in_function )) && echo "TODO: tentative definitions and shit"
+        return 1;;
+    *) return 1;;
+    esac
 }
 
 # check_param_list param_nodes...
