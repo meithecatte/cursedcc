@@ -2,6 +2,7 @@
 set -eu
 shopt -s extglob
 
+LC_ALL=C
 SELFDIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
 . "$SELFDIR/binpack.sh"
