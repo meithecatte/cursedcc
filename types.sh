@@ -1,3 +1,50 @@
+# maps name to fundecl or declare_var, with location being the declaration
+declare -A file_scope=()
+declare in_function=0
+
+# resolve var
+# output in $res
+resolve() {
+    local var=(${ast[$1]})
+    local name="${var[1]}"
+    if (( in_function )) && [[ -n "${block_scope["$name"]-}" ]]; then
+        res="${block_scope["$name"]}"
+    elif [[ -n "${file_scope["$name"]-}" ]]; then
+        res="${file_scope["$name"]}"
+    else
+        error "\`$name\` undeclared"
+        show_node $var "\`$name\`"
+    fi
+}
+
+# scope_insert name node
+scope_insert() {
+    local name="$1" node="$2"
+    if (( in_function )); then
+        # TODO: merge declarations if allowed
+        if [ -n "${vars_in_block[$name]-}" ]; then
+            error "redefinition of \`$name\`"
+            show_node ${vars_in_block[$name]} "\`$name\` first defined here"
+            show_node $node "\`$name\` redefined here"
+            end_diagnostic
+            return 1
+        fi
+
+        vars_in_block[$name]=$node
+        block_scope[$name]=$node
+    else
+        if [ -n "${file_scope[$name]-}" ]; then
+            error "redefinition of \`$name\`"
+            show_node ${file_scope[$name]} "\`$name\` first defined here"
+            show_node $node "\`$name\` redefined here"
+            end_diagnostic
+            return 1
+        fi
+
+        file_scope[$name]=$node
+    fi
+}
+
 # check_param_list param_nodes...
 # Uses $begin from the outer scope to call mknode
 # (this is to turn f(void) into something that logically has no parameters,

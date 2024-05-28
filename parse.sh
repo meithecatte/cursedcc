@@ -169,9 +169,8 @@ show_tokens() {
 
 declare -i pos=0
 declare -a ast=() ast_pos=()
-# Maps to declaration nodes
-declare -A global_namespace=()
-declare -A functions
+# Maps function name to the fundecl at point of definition
+declare -A functions=()
 
 # mknode node begin
 mknode() {
@@ -299,24 +298,23 @@ parse_function() {
     local fundecl="$res"
 
     if peek lbrace; then
-        parse_compound
-        local body="$res"
-
         if [ -n "${functions[$name]-}" ]; then
             error "function \`$name\` is defined twice"
-            show_node ${global_namespace[$name]} "\`$name\` first defined here"
-            show_node $fundecl "\`$name\` redefined here"
+            show_node ${functions[$name]} "\`$name\` first defined here"
+            show_node $fundecl "\`$name redefined here"
             end_diagnostic
             return
         fi
 
-        global_namespace[$name]=$fundecl
+        parse_compound
+        local body="$res"
 
-        functions[$name]="$body"
+        scope_insert $name $fundecl
+        functions[$name]=$fundecl
         emit_function $name $params $body
     else
         expect semi
-        global_namespace[$name]=$fundecl
+        scope_insert $name $fundecl
     fi
 }
 

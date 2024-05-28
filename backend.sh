@@ -267,7 +267,7 @@ emit_prologue() {
             emit_declare_var $var
             emit_var_write $var ${abi_regs[i]}
         else
-            check_declare_var $var
+            scope_insert $name $var
             varmap["$name"]=$((8 * (i - 6) + 16))
         fi
         i+=1
@@ -359,8 +359,11 @@ emit_function() {
 
     # name -> offset from rbp
     local -A varmap=()
-    # name -> declaring token (the ones that can be shadowed are not included)
+    # name -> declaring node (the ones that can be shadowed are not included)
     local -A vars_in_block=()
+    # name -> type
+    local -A block_scope=()
+    local in_function=1
     emit_prologue $params
 
     # Variables defined at the top level of the function are part of the same
@@ -401,24 +404,11 @@ emit_function() {
     sections[.text]+="$code"
 }
 
-check_declare_var() {
-    local node="$1"
-    local name="${ast[node]#var }"
-    if [ -n "${vars_in_block[$name]-}" ]; then
-        error "redefinition of \`$name\`"
-        show_node ${vars_in_block[$name]} "\`$name\` first defined here"
-        show_node $node "\`$name\` redefined here"
-        end_diagnostic
-    fi
-
-    vars_in_block[$name]=$node
-}
-
 # emit_declare_var node
 emit_declare_var() {
     local node="$1"
     local name="${ast[node]#var }"
-    check_declare_var "$node"
+    scope_insert "$name" "$node"
 
     local -i var_size=4
     local -i stack_offset=$stack_used
@@ -490,8 +480,8 @@ emit_statement() {
         compound)
             # allow shadowing
             local -A vars_in_block=()
-            local varmap_def=$(declare -p varmap)
-            local -A varmap="${varmap_def#*=}"
+            eval "${varmap[@]@A}"
+            eval "${block_scope_def[@]@A}"
 
             local -i i
             for (( i=1; i < ${#stmt[@]}; i++ )); do
@@ -622,26 +612,12 @@ emit_expr() {
                 end_diagnostic
                 return
             fi
-
             local callee="${call_target[1]}"
 
-            if [ -n "${varmap["$callee"]-}" ]; then
-                error "cannot call local variable"
-                show_node $lhs "\`$callee\` refers to a local variable, not a function"
-                end_diagnostic
-                return
-            fi
-
-            local fundecl_node=${global_namespace["$callee"]-}
-            if [ -z "$fundecl_node" ]; then
-                error "call to undeclared function \`$callee\`"
-                show_node $lhs "\`$callee\` has not been declared yet"
-                end_diagnostic
-                return
-            fi
+            resolve $lhs; local fundecl_node=$res
 
             local fundecl=(${ast[fundecl_node]})
-            if [[ "$fundecl" != "fundecl" ]]; then
+            if [[ "${fundecl[0]}" != "fundecl" ]]; then
                 error "\`$callee\` is not a function"
                 show_node $lhs "not a function"
                 show_node $fundecl_node "\`$callee\` declared here"
