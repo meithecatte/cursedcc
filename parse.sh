@@ -185,6 +185,11 @@ mknode() {
 # try_unpack node expected_type params...
 try_unpack() {
     local _node=$1 _expected=$2
+    if ! [[ "$_node" =~ ^[0-9]*$ && -n "${ast[_node]-}" ]]; then
+        internal_error "invalid index $_node for try_unpack"
+        exit 1
+    fi
+
     local _parts=(${ast[_node]})
     if [[ "$_expected" != "${_parts[0]}" ]]; then
         return 1
@@ -201,8 +206,7 @@ try_unpack() {
 unpack() {
     if ! try_unpack "$@"; then
         local _parts=(${ast[$1]})
-        local where="(in ${FUNCNAME[1]} at ${BASH_SOURCE[1]}:${BASH_LINENO[0]})"
-        internal_error "expected node of type $2, got ${_parts[0]} $where"
+        internal_error "expected node of type $2, got ${_parts[0]}"
         show_node $1 "${_parts[*]}"
         end_diagnostic
         exit 1
@@ -287,6 +291,7 @@ parse() {
 #     declarator
 #     declarator = initializer
 parse_external_declaration() {
+    local begin=$pos
     parse_declaration_specifiers; local specifiers=$res
     if peek semi; then
         useless_specifiers $specifiers
@@ -308,7 +313,7 @@ parse_external_declaration() {
             return 1
         fi
 
-        mknode "declare_var $ty $var"; local fundecl=$res
+        mknode "declare_var $ty $var" $begin; local fundecl=$res
         scope_insert $name $fundecl
 
         parse_compound; local body=$res
@@ -386,14 +391,16 @@ finish_declaration() {
 }
 
 finish_init_declarator() {
+    local specifiers=$1 declarator=$2
+    local begin=(${ast_pos[declarator]})
     local ty var
     unfuck_declarator $declarator $specifiers
     if peek assn; then
         expect assn
         parse_initializer; local value=$res
-        mknode "declare_var $ty $var $value"
+        mknode "declare_var $ty $var $value" $begin
     else
-        mknode "declare_var $ty $var"
+        mknode "declare_var $ty $var" $begin
     fi
 }
 
@@ -411,12 +418,17 @@ parse_initializer() {
 # 6.7 Declarations
 # mvp grammar
 peek_declaration_specifiers() {
-    peek kw:int
+    peek kw:int || peek kw:void
 }
 
 parse_declaration_specifiers() {
-    expect kw:int
-    mknode "ty_int"
+    if peek kw:int; then
+        expect kw:int
+        mknode "ty_int"
+    elif peek kw:void; then
+        expect kw:void
+        mknode "ty_void"
+    fi
 }
 
 # 6.7.6 Declarators
@@ -478,27 +490,21 @@ parse_parameter_type_list() {
 }
 
 # 6.7.6 Declarators
-# mvp grammar
+# parameter-declaration:
+#     declaration-specifiers declarator
+#     declaration-specifiers abstract-declarator? # TODO
 parse_parameter_declaration() {
-    local ty begin=$pos
-    case "${toktype[pos]}" in
-    kw:void) pos+=1; ty=void;;
-    kw:int)  pos+=1; ty=int;;
-    *)
-        spell_token "${toktype[pos]}"
-        error "expected \`int\` or \`void\`, found ${spelled}"
-        show_token $pos "type name expected here"
-        end_diagnostic
-        pos+=1
-        return
-    esac
+    local begin=$pos
+    parse_declaration_specifiers; local specifiers=$res
 
-    if peek ident; then
-        expect ident; local name="${expect_tokdata}"
-        mknode "var $name"
-        mknode "declare_var $ty $res" $begin
+    if peek rparen || peek comma; then
+        mknode "declare_var $specifiers"
     else
-        mknode "declare_var $ty" $begin
+        parse_declarator; local declarator=$res
+        local ty var
+        unfuck_declarator $declarator $specifiers
+
+        mknode "declare_var $ty $var" $begin
     fi
 }
 

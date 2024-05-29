@@ -469,6 +469,16 @@ emit_var_read() {
 emit_var_write() {
     local node="$1" reg="$2"
     local name="${ast[node]#var }"
+    resolve $node; local decl=$res
+    local ty var; unpack $decl declare_var ty var _
+    if try_unpack $ty ty_fun _ _; then
+        error "cannot assign to a function"
+        show_node $node "\`$name\` refers to a function"
+        show_node $decl "\`$name\` declared here"
+        end_diagnostic
+        return
+    fi
+
     check_var_exists "$name" "$node" || return
     mov_rbpoff_reg "${varmap[$name]}" "$reg"
 }

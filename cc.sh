@@ -5,6 +5,7 @@ shopt -s extglob
 LC_ALL=C
 SELFDIR="$(dirname -- "${BASH_SOURCE[0]}")"
 
+. "$SELFDIR/backtrace.sh"
 . "$SELFDIR/binpack.sh"
 . "$SELFDIR/diagnostics.sh"
 . "$SELFDIR/parse.sh"
