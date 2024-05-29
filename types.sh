@@ -1,4 +1,9 @@
-# maps name to fundecl or declare_var, with location being the declaration
+# maps name to string with the following space-separated fields:
+#  - declaring node (fundecl or declare_var)
+#  TODO(global variables):
+#  - if declare_var:
+#    - storage type ("rbp", ".data" or ".bss")
+#    - offset
 declare -A file_scope=()
 declare in_function=0
 
@@ -51,28 +56,33 @@ scope_insert() {
 
 # check_redeclaration prev_node cur_node name
 check_redeclaration() {
-    local previous=(${ast[$1]}) current=(${ast[$2]}) name="$3"
-    case $previous,$current in
-    fundecl,fundecl)
-        local previous_params=(${ast[previous[2]]})
-        local current_params=(${ast[current[2]]})
-        local previous_count=$((${#previous_params[@]} - 1))
-        local current_count=$((${#current_params[@]} - 1))
+    local ty1 ty2
+    unpack $1 declare_var ty1 _ _
+    unpack $2 declare_var ty2 _ _
+    local name=$3
+
+    local ret1 ret2 params1 params2
+    if try_unpack $ty1 ty_fun ret1 params1 &&
+        try_unpack $ty2 ty_fun ret2 params2
+    then
+        local params1=(${ast[params1]})
+        local params2=(${ast[params2]})
+        local count1=$((${#params1[@]} - 1))
+        local count2=$((${#params2[@]} - 1))
         # TODO: do more exhaustive checks once we support more types
-        if (( previous_count != current_count )); then
+        if (( count1 != count2 )); then
             error "conflicting declarations of \`$name\`"
-            show_node $1 "\`$name\` defined here with $previous_count parameters"
-            show_node $2 "\`$name\` redefined with $current_count parameters"
+            show_node $1 "\`$name\` defined here with $count1 parameters"
+            show_node $2 "\`$name\` redefined with $count2 parameters"
             end_diagnostic
             return # don't emit further diagnostics in scope_insert
         fi
 
-        return;;
-    declare_var,declare_var)
+        return
+    else
         (( !in_function )) && echo "TODO: tentative definitions and shit"
-        return 1;;
-    *) return 1;;
-    esac
+        return 1
+    fi
 }
 
 # check_param_list param_nodes...
@@ -118,4 +128,25 @@ check_param_list() {
     done
 
     mknode "params ${param_list[*]}" $begin
+}
+
+# unfuck_declarator node base_type
+# returns ty, var
+#
+# Turns the raw almost-CST of a declarator into an actual type and variable,
+# by inverting the entire damn structure.
+unfuck_declarator() {
+    local decl=(${ast[$1]}) base_type=$2 pos="${ast_pos[$1]}"
+    case "${decl[0]}" in
+    var) # base case - 6.7.6p5
+        ty=$base_type
+        var=$1;;
+    decl_fun) # 6.7.6.3 Function declarators
+        local inner="${decl[1]}"
+        local params="${decl[2]}"
+        mknode "ty_fun $base_type $params" $pos
+        unfuck_declarator $inner $res;;
+    *)
+        fail "TODO(unfuck_declarator): ${decl[*]}";;
+    esac
 }

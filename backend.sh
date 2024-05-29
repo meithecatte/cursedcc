@@ -236,6 +236,31 @@ call_symbol() {
     p32 code 0
 }
 
+emit_global() {
+    local decl=(${ast[$1]})
+    case ${decl[0]} in
+    declare)
+        for node in ${decl[@]:1}; do
+            local ty var init=''
+            unpack $node declare_var ty var init
+            if [[ -n "$init" ]]; then
+                fail "TODO: global variables"
+            fi
+
+            if try_unpack $ty ty_fun _ _; then
+                local name; unpack $var var name
+                scope_insert $name $node
+            else
+                fail "TODO: global variables"
+            fi
+        done;;
+    nothing) ;;
+    *)
+        internal_error "finish_declaration returned ${decl[0]}"
+        end_diagnostic;;
+    esac
+}
+
 # AST traversal starts here
 # measure_params_stack params
 measure_params_stack() {
@@ -251,23 +276,23 @@ measure_params_stack() {
 emit_prologue() {
     local -a params=(${ast[$1]})
     local -i i=0
-    for param_id in "${params[@]:1}"; do
-        local -a param=(${ast[param_id]})
-        local var="${param[2]-}"
+    for param in "${params[@]:1}"; do
+        local ty var=''
+        unpack $param declare_var ty var
 
         if [ -z "$var" ]; then
             error "missing name for parameter"
-            show_node $param_id "parameter name omitted"
+            show_node $param "parameter name omitted"
             end_diagnostic
-            continue
+            i+=1; continue
         fi
 
-        local name="${ast[var]#var }"
+        local name; unpack $var var name
         if (( i < num_abi_regs )); then
-            emit_declare_var $var
+            emit_declare_var $param
             emit_var_write $var ${abi_regs[i]}
         else
-            scope_insert $name $var
+            scope_insert $name $param
             varmap["$name"]=$((8 * (i - 6) + 16))
         fi
         i+=1
@@ -404,11 +429,12 @@ emit_function() {
     sections[.text]+="$code"
 }
 
-# emit_declare_var node
+# emit_declare_var declare_var
 emit_declare_var() {
-    local node="$1"
-    local name="${ast[node]#var }"
-    scope_insert "$name" "$node"
+    local decl="$1"
+    local ty name; unpack $decl declare_var ty name _
+    local name; unpack $var var name
+    scope_insert "$name" "$decl"
 
     local -i var_size=4
     local -i stack_offset=$stack_used
@@ -464,14 +490,15 @@ emit_statement() {
     case ${stmt[0]} in
         declare)
             local -i i
-            for (( i=1; i < ${#stmt[@]}; i++ )); do
-                local node=${stmt[i]}
-                local -a decl=(${ast[node]})
-                local name=${decl[1]} value=${decl[2]-}
-                emit_declare_var $name
-                if [ -n "$value" ]; then
+            for node in "${stmt[@]:1}"; do
+                local ty var init=''
+                unpack $node declare_var ty var init
+                emit_declare_var $node
+                if [ -n "$init" ]; then
+                    local value
+                    unpack $init expr value
                     emit_expr $value
-                    emit_var_write $name $EAX
+                    emit_var_write $var $EAX
                 fi
             done;;
         label)
@@ -605,27 +632,29 @@ emit_expr() {
             emit_var_read $1 $EAX;;
         call)
             local lhs="${expr[1]}"
-            local -a call_target=(${ast[lhs]})
-            if [ "${call_target[0]}" != "var" ]; then
+            local callee
+            if ! try_unpack $lhs var callee; then
                 error "indirect calls are not supported"
                 show_node $lhs "calm thy unhingedness"
                 end_diagnostic
                 return
             fi
-            local callee="${call_target[1]}"
 
-            resolve $lhs; local fundecl_node=$res
+            local ty decl_var
+            resolve $lhs; local fundecl=$res
+            unpack $fundecl declare_var ty decl_var _
 
-            local fundecl=(${ast[fundecl_node]})
-            if [[ "${fundecl[0]}" != "fundecl" ]]; then
+            local ty_ret params
+            if ! try_unpack $ty ty_fun ty_ret params; then
                 error "\`$callee\` is not a function"
                 show_node $lhs "not a function"
-                show_node $fundecl_node "\`$callee\` declared here"
+                show_node $fundecl "\`$callee\` declared here"
                 end_diagnostic
                 return
             fi
 
-            local params=(${ast[fundecl[2]]})
+            local params=(${ast[params]})
+
             local num_params=$((${#params[@]} - 1))
 
             local num_args=$((${#expr[@]} - 2))
@@ -638,7 +667,7 @@ emit_expr() {
                 fi
 
                 show_node $1 "$num_args arguments provided to \`$callee\`"
-                show_node $fundecl_node \
+                show_node $fundecl \
                     "\`$callee\` declared with $num_params parameters"
                 end_diagnostic
             fi

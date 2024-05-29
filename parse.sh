@@ -160,6 +160,7 @@ lexline() {
     done
 }
 
+# For debugging the lexer
 show_tokens() {
     local -i i
     for (( i=0; i < ${#toktype[@]}; i++ )); do
@@ -179,6 +180,33 @@ mknode() {
     res=${#ast[@]}
     ast+=("$1")
     ast_pos+=("$begin $end")
+}
+
+# try_unpack node expected_type params...
+try_unpack() {
+    local _node=$1 _expected=$2
+    local _parts=(${ast[_node]})
+    if [[ "$_expected" != "${_parts[0]}" ]]; then
+        return 1
+    fi
+
+    shift 2
+    for _part in "${_parts[@]:1}"; do
+        local -n _ref=$1; shift 1
+        _ref="$_part"
+    done
+}
+
+# unpack node expected_type params...
+unpack() {
+    if ! try_unpack "$@"; then
+        local _parts=(${ast[$1]})
+        local where="(in ${FUNCNAME[1]} at ${BASH_SOURCE[1]}:${BASH_LINENO[0]})"
+        internal_error "expected node of type $2, got ${_parts[0]} $where"
+        show_node $1 "${_parts[*]}"
+        end_diagnostic
+        exit 1
+    fi
 }
 
 has_tokens() {
@@ -228,9 +256,198 @@ peek() {
     [[ "${toktype[pos]}" == "$1" ]]
 }
 
+# 6.9 External definitions
+# translation-unit:
+#     external-declaration
+#     translation-unit external-declaration
 parse() {
     while has_tokens; do
-        parse_function
+        parse_external_declaration
+    done
+}
+
+# 6.9 External definitions
+# external-declaration:
+#     function-definition
+#     declaration
+#
+# 6.9.1 Function definitions
+# function-definition:
+#     declaration-specifiers declarator declaration-list? compound-statement
+#
+# 6.7 Declarations
+# declaration:
+#     declaration-specifiers init-declarator-list?
+#
+# init-declarator-list:
+#     init-declarator
+#     init-declarator-list , init-declarator
+#
+# init-declarator:
+#     declarator
+#     declarator = initializer
+parse_external_declaration() {
+    parse_declaration_specifiers; local specifiers=$res
+    if peek semi; then
+        useless_specifiers $specifiers
+        return
+    fi
+
+    parse_declarator; local declarator=$res
+    if peek lbrace; then
+        local ty var
+        unfuck_declarator $declarator $specifiers
+        local name="${ast[var]#var }"
+        local ty_ret params
+
+        if ! try_unpack $ty ty_fun ty_ret params; then
+            error "expected \`,\` or \`;\`, found \`{\`"
+            show_token $pos "unexpected \`{\`"
+            show_node $var "not a function"
+            end_diagnostic
+            return 1
+        fi
+
+        mknode "declare_var $ty $var"; local fundecl=$res
+        scope_insert $name $fundecl
+
+        parse_compound; local body=$res
+        if [ -n "${functions[$name]-}" ]; then
+            error "function \`$name\` is defined twice"
+            show_node ${functions[$name]} "\`$name\` first defined here"
+            show_node $fundecl "\`$name redefined here"
+            end_diagnostic
+            return
+        fi
+
+        functions[$name]=$fundecl
+        emit_function $name $params $body
+    else
+        finish_declaration $specifiers $declarator
+        emit_global $res
+    fi
+}
+
+# useless_specifiers specifiers
+useless_specifiers() {
+    expect semi
+    warning "useless empty declaration"
+    show_node $1 "useless empty declaration"
+    end_diagnostic
+    mknode "nothing"
+}
+
+# 6.7 Declarations
+# declaration:
+#     declaration-specifiers init-declarator-list? ;
+peek_declaration() {
+    peek_declaration_specifiers
+}
+
+parse_declaration() {
+    parse_declaration_specifiers; local specifiers=$res
+    if peek semi; then
+        useless_specifiers $specifiers
+        return
+    fi
+
+    parse_declarator; local declarator=$res
+    finish_declaration $specifiers $declarator
+}
+
+# Pick up parsing a `declaration` after
+#     declaration-specifiers declarator
+#
+# declaration:
+#     declaration-specifiers init-declarator-list?
+#
+# init-declarator-list:
+#     init-declarator
+#     init-declarator-list , init-declarator
+#
+# init-declarator:
+#     declarator
+#     declarator = initializer
+finish_declaration() {
+    local specifiers=$1 declarator=$2 vars=()
+
+    finish_init_declarator $specifiers $declarator
+    vars+=($res)
+
+    while peek comma; do
+        expect comma
+        parse_declarator; declarator=$res
+        finish_init_declarator $specifiers $declarator
+        vars+=($res)
+    done
+
+    expect semi
+    mknode "declare ${vars[*]}"
+}
+
+finish_init_declarator() {
+    local ty var
+    unfuck_declarator $declarator $specifiers
+    if peek assn; then
+        expect assn
+        parse_initializer; local value=$res
+        mknode "declare_var $ty $var $value"
+    else
+        mknode "declare_var $ty $var"
+    fi
+}
+
+# 6.7.9 Initialization
+# initializer:
+#     assignment-expression
+#     { initializer-list }
+#     { initializer-list , }
+parse_initializer() {
+    # TODO: non-trivial initializers
+    parse_assignment_expr
+    mknode "expr $res"
+}
+
+# 6.7 Declarations
+# mvp grammar
+peek_declaration_specifiers() {
+    peek kw:int
+}
+
+parse_declaration_specifiers() {
+    expect kw:int
+    mknode "ty_int"
+}
+
+# 6.7.6 Declarators
+# declarator:
+#     pointer? direct-declarator
+parse_declarator() {
+    # TODO: handle pointer types
+    parse_direct_declarator
+}
+
+# 6.7.6 Declarators
+# direct-declarator:
+#     identifier
+#     ( declarator )
+#     ... # TODO
+#     direct-declarator ( parameter-type-list )
+parse_direct_declarator() {
+    if peek lparen; then
+        expect lparen
+        parse_declarator; local cur=$res
+        expect rparen
+    else
+        expect ident; local name="$expect_tokdata"
+        mknode "var $name"; local cur=$res
+    fi
+
+    while peek lparen; do
+        expect lparen
+        parse_parameter_type_list; local params=$res
+        expect rparen
+        mknode "decl_fun $cur $params"; local cur=$res
     done
 }
 
@@ -259,6 +476,7 @@ parse_parameter_type_list() {
     check_param_list "${param_list[@]}"
 }
 
+# 6.7.6 Declarators
 # mvp grammar
 parse_parameter_declaration() {
     local ty begin=$pos
@@ -277,44 +495,9 @@ parse_parameter_declaration() {
     if peek ident; then
         expect ident; local name="${expect_tokdata}"
         mknode "var $name"
-        mknode "param $ty $res" $begin
+        mknode "declare_var $ty $res" $begin
     else
-        mknode "param $ty" $begin
-    fi
-}
-
-parse_function() {
-    local begin="$pos"
-    expect kw:int
-    expect ident
-    local name="$expect_tokdata"
-    expect lparen
-    # TODO: parse foo() as foo(unspecified)
-    parse_parameter_type_list
-    local params="$res"
-    expect rparen
-
-    mknode "fundecl int $params" $begin
-    local fundecl="$res"
-
-    if peek lbrace; then
-        if [ -n "${functions[$name]-}" ]; then
-            error "function \`$name\` is defined twice"
-            show_node ${functions[$name]} "\`$name\` first defined here"
-            show_node $fundecl "\`$name redefined here"
-            end_diagnostic
-            return
-        fi
-
-        parse_compound
-        local body="$res"
-
-        scope_insert $name $fundecl
-        functions[$name]=$fundecl
-        emit_function $name $params $body
-    else
-        expect semi
-        scope_insert $name $fundecl
+        mknode "declare_var $ty" $begin
     fi
 }
 
@@ -503,57 +686,6 @@ parse_statement() {
         parse_semi
         mknode "expr $expr" $begin;;
     esac
-}
-
-# 6.7 Declarations
-peek_declaration() {
-    peek kw:int
-}
-
-parse_declaration() {
-    local type_pos=$pos
-    expect kw:int
-    if peek semi; then
-        pos+=1
-        warning "useless type name in empty declaration"
-        show_token $pos
-        end_diagnostic
-        mknode "nothing"
-        return
-    fi
-
-    local vars=()
-
-    while :; do
-        local ident_pos=$pos
-        expect ident
-        local name="$expect_tokdata"
-        mknode "var $name" $ident_pos
-        local var=$res
-
-        if peek assn; then
-            expect assn
-            parse_assignment_expr; local value=$res
-            mknode "declare_var $var $value"
-            vars+=($res)
-        else
-            mknode "declare_var $var"
-            vars+=($res)
-        fi
-
-        case "${toktype[pos]}" in
-        comma) pos+=1; continue;;
-        semi)  pos+=1; break;;
-        *)
-            spell_token "${toktype[pos]}"
-            error "expected \`,\` or \`;\`, got ${spelled}"
-            show_token $pos "expected \`,\` or \`;\`"
-            end_diagnostic
-            return 1;;
-        esac
-    done
-
-    mknode "declare ${vars[*]}"
 }
 
 check_expr_start() {
