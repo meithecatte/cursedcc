@@ -144,6 +144,17 @@ unfuck_declarator() {
     decl_fun) # 6.7.6.3 Function declarators
         local inner="${decl[1]}"
         local params="${decl[2]}"
+
+        # 6.7.6.3p1 "A function declarator shall not specify a return type
+        # that is a function type or an array type."
+        local other_params
+        if try_unpack $base_type ty_fun _ other_params; then
+            error "cannot return function from function"
+            show_node $1 "function declared here"
+            show_node $other_params "return type is a function type"
+            end_diagnostic
+            return 1
+        fi
         mknode "ty_fun $base_type $params" $pos
         unfuck_declarator $inner $res;;
     *)
