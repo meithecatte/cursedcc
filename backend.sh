@@ -676,9 +676,13 @@ emit_expr() {
                     error "not enough arguments for call to \`$callee\`"
                 fi
 
-                show_node $1 "$num_args arguments provided to \`$callee\`"
+                local arg_plural='' param_plural=''
+                (( num_args != 1 )) && arg_plural=s
+                (( num_params != 1 )) && param_plural=s
+                show_node $1 \
+                    "$num_args argument$arg_plural provided to \`$callee\`"
                 show_node $fundecl \
-                    "\`$callee\` declared with $num_params parameters"
+                    "\`$callee\` declared with $num_params parameter$param_plural"
                 end_diagnostic
             fi
 
