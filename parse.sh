@@ -292,16 +292,17 @@ parse() {
 #     declarator = initializer
 parse_external_declaration() {
     local begin=$pos
-    parse_declaration_specifiers; local specifiers=$res
+    local storage_class
+    parse_declaration_specifiers; local base_type=$res
     if peek semi; then
-        useless_specifiers $specifiers
+        useless_specifiers $base_type
         return
     fi
 
     parse_declarator; local declarator=$res
     if peek lbrace; then
         local ty var
-        unfuck_declarator $declarator $specifiers
+        unfuck_declarator $declarator $base_type
         local name="${ast[var]#var }"
         local ty_ret params
 
@@ -328,7 +329,7 @@ parse_external_declaration() {
         functions[$name]=$fundecl
         emit_function $name $params $body
     else
-        finish_declaration $specifiers $declarator
+        finish_declaration $base_type $declarator
         emit_global $res
     fi
 }
@@ -350,14 +351,15 @@ peek_declaration() {
 }
 
 parse_declaration() {
-    parse_declaration_specifiers; local specifiers=$res
+    local storage_class
+    parse_declaration_specifiers; local base_type=$res
     if peek semi; then
-        useless_specifiers $specifiers
+        useless_specifiers $base_type
         return
     fi
 
     parse_declarator; local declarator=$res
-    finish_declaration $specifiers $declarator
+    finish_declaration $base_type $declarator
 }
 
 # Pick up parsing a `declaration` after
@@ -374,15 +376,15 @@ parse_declaration() {
 #     declarator
 #     declarator = initializer
 finish_declaration() {
-    local specifiers=$1 declarator=$2 vars=()
+    local base_type=$1 declarator=$2 vars=()
 
-    finish_init_declarator $specifiers $declarator
+    finish_init_declarator $base_type $declarator
     vars+=($res)
 
     while peek comma; do
         expect comma
         parse_declarator; declarator=$res
-        finish_init_declarator $specifiers $declarator
+        finish_init_declarator $base_type $declarator
         vars+=($res)
     done
 
@@ -394,7 +396,7 @@ finish_init_declarator() {
     local specifiers=$1 declarator=$2
     local begin=(${ast_pos[declarator]})
     local ty var
-    unfuck_declarator $declarator $specifiers
+    unfuck_declarator $declarator $base_type
     if peek assn; then
         expect assn
         parse_initializer; local value=$res
@@ -418,17 +420,65 @@ parse_initializer() {
 # 6.7 Declarations
 # mvp grammar
 peek_declaration_specifiers() {
-    peek kw:int || peek kw:void
+    peek kw:int || peek kw:void || peek kw:extern || peek kw:static
 }
 
+# returns into storage_class and res
 parse_declaration_specifiers() {
-    if peek kw:int; then
-        expect kw:int
-        mknode "ty_int"
-    elif peek kw:void; then
-        expect kw:void
-        mknode "ty_void"
+    local type_specifiers=()
+    storage_class=''
+
+    parse_storage_class() {
+        case "${toktype[pos]}" in
+        kw:static)
+            expect kw:static
+            mknode "stc_static";;
+        kw:extern)
+            expect kw:extern
+            mknode "stc_extern";;
+        *)
+            internal_error "this should be unreachable"
+            exit 1;;
+        esac
+
+        # 6.7.1p2 "At most, one storage-class specifier may be given in
+        # the declaration specifiers in a declaration, except that
+        # _Thread_local may appear with static or extern.
+        if [ -n "$storage_class" ]; then
+            error "more than one storage class specified"
+            local previous="${ast[storage_class]}"
+            show_node $storage_class "$previous first specified here"
+            show_node $res "${tokdata[pos-1]} specified here"
+            end_diagnostic
+        else
+            storage_class="$res"
+        fi
+    }
+
+    while has_tokens; do
+        case "${toktype[pos]}" in
+        kw:static|kw:extern)
+            parse_storage_class;;
+        kw:int)
+            type_specifiers+=($pos)
+            pos+=1;;
+        kw:void)
+            type_specifiers+=($pos)
+            pos+=1;;
+        *)
+            break;;
+        esac
+    done
+
+    if (( ${#type_specifiers[@]} == 0 )); then
+        spell_token "${toktype[pos]}"
+        error "expected type, found $spelled"
+        show_token $pos "type expected"
+        end_diagnostic
+        return 1
     fi
+
+    type_from_specifiers "${type_specifiers[@]}"
 }
 
 # 6.7.6 Declarators

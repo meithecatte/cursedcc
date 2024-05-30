@@ -160,3 +160,109 @@ unfuck_declarator() {
         fail "TODO(unfuck_declarator): ${decl[*]}";;
     esac
 }
+
+# 6.7.2p2
+# Invariant: for each multiset included here, all the subsets are included
+# as well
+declare -A base_types=(
+    ["void"]=ty_void
+    ["char"]=ty_char
+    ["signed char"]=ty_char
+    ["unsigned char"]=ty_uchar
+    ["short"]=ty_short
+    ["signed short"]=ty_short
+    ["short int"]=ty_short
+    ["signed short int"]=ty_short
+    ["unsigned short"]=ty_ushort
+    ["unsigned short int"]=ty_ushort
+    ["int"]=ty_int
+    ["signed"]=ty_int
+    ["signed int"]=ty_int
+    ["unsigned"]=ty_uint
+    ["unsigned int"]=ty_uint
+    ["long"]=ty_long
+    ["signed long"]=ty_long
+    ["long int"]=ty_long
+    ["signed long int"]=ty_long
+    ["unsigned long"]=ty_ulong
+    ["unsigned long int"]=ty_ulong
+    ["long long"]=ty_ll
+    ["signed long long"]=ty_ll
+    ["long long int"]=ty_ll
+    ["signed long long int"]=ty_ll
+    ["unsigned long long"]=ty_ull
+    ["unsigned long long int"]=ty_ull
+    ["float"]=ty_float
+    ["double"]=ty_double
+    ["long double"]=ty_longdouble
+    ["_Bool"]=ty_bool
+)
+
+declare -A canonical_base_type_name=(
+    [ty_void]="void"
+    [ty_char]="char"
+    [ty_uchar]="unsigned char"
+    [ty_short]="short"
+    [ty_ushort]="unsigned short"
+    [ty_int]="int"
+    [ty_uint]="unsigned int"
+    [ty_long]="long"
+    [ty_ulong]="unsigned long"
+    [ty_ll]="long long"
+    [ty_ull]="unsigned long long"
+    [ty_float]="float"
+    [ty_double]="double"
+    [ty_longdouble]="long double"
+    [ty_bool]="bool"
+)
+
+counts_match_typename() {
+    local -Ai candidate_counts=()
+    for part in $1; do
+        candidate_counts[$part]+=1
+    done
+
+    for part in ${!counts[@]} ${!candidate_counts[@]}; do
+        if (( ${counts[$part]-0} != ${candidate_counts[$part]-0} )); then
+            return 1
+        fi
+    done
+}
+
+find_matching_typename() {
+    local typename
+    for typename in "${!base_types[@]}"; do
+        if counts_match_typename "$typename"; then
+            res="$typename"
+            return
+        fi
+    done
+
+    return 1
+}
+
+type_from_specifiers() {
+    local begin=$1 type_so_far=''
+    local -Ai counts=()
+    for tok in $@; do
+        counts[${tokdata[tok]}]+=1
+        if ! find_matching_typename; then
+            mknode $type_so_far $begin $end
+            local canonical="${canonical_base_type_name["$type_so_far"]}"
+            if (( ${counts[${tokdata[tok]}]} > 1 )); then
+                error "too many occurences of \`${tokdata[tok]}\` in type name"
+            else
+                error "conflicting type specifiers in type name"
+            fi
+            show_node $res "\`$canonical\` specified here"
+            show_token $tok "\`${tokdata[tok]}\` requested here"
+            end_diagnostic
+            return
+        fi
+
+        local end=$tok
+        local type_so_far="${base_types["$res"]}"
+    done
+
+    mknode $type_so_far $begin $end
+}
