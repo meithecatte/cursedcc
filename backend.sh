@@ -240,6 +240,7 @@ emit_global() {
     local decl=(${ast[$1]})
     case ${decl[0]} in
     declare)
+        local node
         for node in ${decl[@]:1}; do
             local ty var init=''
             unpack $node declare_var ty var init
@@ -265,6 +266,7 @@ emit_global() {
 # measure_params_stack params
 measure_params_stack() {
     local -a params=(${ast[$1]})
+    local param_id
     for param_id in "${params[@]:1:num_abi_regs+1}"; do
         local -a param=(${ast[param_id]})
         local -i var_size=4
@@ -276,6 +278,7 @@ measure_params_stack() {
 emit_prologue() {
     local -a params=(${ast[$1]})
     local -i i=0
+    local param
     for param in "${params[@]:1}"; do
         local ty var=''
         unpack $param declare_var ty var
@@ -412,6 +415,7 @@ emit_function() {
         exit 1
     fi
 
+    local stmt
     for stmt in "${stmts[@]:1}"; do
         emit_statement $stmt
     done
@@ -500,6 +504,7 @@ emit_statement() {
     case ${stmt[0]} in
         declare)
             local -i i
+            local node
             for node in "${stmt[@]:1}"; do
                 local ty var init=''
                 unpack $node declare_var ty var init

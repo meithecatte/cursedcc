@@ -137,7 +137,7 @@ lexline() {
             *)
 
                 local -i longest=0
-                local longest_token=
+                local longest_token= token_name
                 for token_name in "${!token_names[@]}"; do
                     local token="${token_names["$token_name"]}"
                     if [[ "${line:i}" =~ ^"$token" ]]; then
@@ -184,7 +184,7 @@ mknode() {
 
 # try_unpack node expected_type params...
 try_unpack() {
-    local _node=$1 _expected=$2
+    local _node=$1 _expected=$2 _part
     if ! [[ "$_node" =~ ^[0-9]*$ && -n "${ast[_node]-}" ]]; then
         internal_error "invalid index $_node for try_unpack"
         exit 1
@@ -196,6 +196,10 @@ try_unpack() {
     fi
 
     shift 2
+    if (( ${#_parts[@]} - 1 > $# )); then
+        return 1
+    fi
+
     for _part in "${_parts[@]:1}"; do
         local -n _ref=$1; shift 1
         _ref="$_part"
@@ -351,6 +355,7 @@ peek_declaration() {
 }
 
 parse_declaration() {
+    local begin=$pos
     local storage_class
     parse_declaration_specifiers; local base_type=$res
     if peek semi; then
@@ -389,7 +394,7 @@ finish_declaration() {
     done
 
     expect semi
-    mknode "declare ${vars[*]}"
+    mknode "declare ${vars[*]}" $begin
 }
 
 finish_init_declarator() {
@@ -677,6 +682,24 @@ parse_statement() {
             mknode "nothing"; local init=$res
         elif peek_declaration; then
             parse_declaration; local init=$res
+            local declvars=(${ast[init]})
+            local declvar
+            for declvar in "${declvars[@]:1}"; do
+                local ty var name
+                unpack $declvar "declare_var" ty var _
+                unpack $var "var" name
+                # 6.8.5p3 The declaration part of a for statement shall only
+                # declare identifiers for objects having storage class
+                # auto or register.
+                #
+                # 6.2.5p1 Types are partitioned into object types and function
+                # types.
+                if try_unpack $ty "ty_fun" _ _; then
+                    error "non-variable declaration in \`for\` loop"
+                    show_node $declvar "function \`$name\` declared here"
+                    end_diagnostic
+                fi
+            done
         else
             parse_expr; mknode "expr $res"; local init=$res
             parse_semi

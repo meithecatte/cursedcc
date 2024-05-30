@@ -91,6 +91,7 @@ check_redeclaration() {
 # despite the fact that there is one syntactic entry in the list)
 check_param_list() {
     local -A names_used=() # points to the 'param' nodes
+    local param
     for param in "$@"; do
         local ty var=''
         unpack $param declare_var ty var
@@ -218,6 +219,7 @@ declare -A canonical_base_type_name=(
 
 counts_match_typename() {
     local -Ai candidate_counts=()
+    local part
     for part in $1; do
         candidate_counts[$part]+=1
     done
@@ -244,6 +246,7 @@ find_matching_typename() {
 type_from_specifiers() {
     local begin=$1 type_so_far=''
     local -Ai counts=()
+    local tok
     for tok in $@; do
         counts[${tokdata[tok]}]+=1
         if ! find_matching_typename; then

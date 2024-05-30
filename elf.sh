@@ -74,6 +74,7 @@ build_stringtable() {
     local -n positions="$2"
     shift 2
     local data="\x00"
+    local s
     for s in "$@"; do
         local pos
         binlength pos "$data"
@@ -86,6 +87,7 @@ build_stringtable() {
 }
 
 collect_imports() {
+    local reloc
     for reloc in "${relocations[@]}"; do
         local reloc_parts=($reloc)
         local section="${reloc_parts[0]}"
@@ -120,6 +122,7 @@ build_symtab() {
     done
 
     local -i symbol_count=1
+    local symbol
     for symbol in "${!symbol_sections[@]}"; do
         local section="${symbol_sections[$symbol]}"
         local offset="${symbol_offsets[$symbol]}"
@@ -149,6 +152,7 @@ build_symtab() {
 build_relocs() {
     local -A reloc_sections
 
+    local reloc
     for reloc in "${relocations[@]}"; do
         local reloc_parts=($reloc)
         local section="${reloc_parts[0]}"
@@ -162,6 +166,7 @@ build_relocs() {
         p64 reloc_sections[$section] $addend
     done
 
+    local section
     for section in "${!reloc_sections[@]}"; do
         sections[.rela$section]="${reloc_sections[$section]}"
         section_types[.rela$section]="$SHT_RELA"
@@ -205,6 +210,7 @@ emit_elf() {
         section_headers+="\x00"
     done
 
+    local section_name
     for section_name in "${section_order[@]}"; do
         local section="${sections[$section_name]}"
         local section_size

@@ -176,6 +176,7 @@ resolve_jumps() {
     local -ia jump_actual_position=()
     local -i i=0 adjust=0
 
+    local label
     for label in "${label_order[@]}"; do
         local -i position="${label_position["$label"]}"
         while (( i < ${#jump_position[@]} && jump_position[i] < position )); do
