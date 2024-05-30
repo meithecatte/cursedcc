@@ -523,7 +523,7 @@ emit_statement() {
             # allow shadowing
             local -A vars_in_block=()
             eval "${varmap[@]@A}"
-            eval "${block_scope_def[@]@A}"
+            eval "${block_scope[@]@A}"
 
             local -i i
             for (( i=1; i < ${#stmt[@]}; i++ )); do
