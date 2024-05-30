@@ -243,13 +243,13 @@ emit_global() {
         local node
         for node in ${decl[@]:1}; do
             local ty var init=''
-            unpack $node declare_var ty var init
+            unpack $node "declare_var" ty var init
             if [[ -n "$init" ]]; then
                 fail "TODO: global variables"
             fi
 
-            if try_unpack $ty ty_fun _ _; then
-                local name; unpack $var var name
+            if try_unpack $ty "ty_fun" _ _; then
+                local name; unpack $var "var" name
                 scope_insert $name $node
             else
                 fail "TODO: global variables"
@@ -281,7 +281,7 @@ emit_prologue() {
     local param
     for param in "${params[@]:1}"; do
         local ty var=''
-        unpack $param declare_var ty var
+        unpack $param "declare_var" ty var
 
         if [ -z "$var" ]; then
             error "missing name for parameter"
@@ -290,7 +290,7 @@ emit_prologue() {
             i+=1; continue
         fi
 
-        local name; unpack $var var name
+        local name; unpack $var "var" name
         if (( i < num_abi_regs )); then
             emit_declare_var $param
             emit_var_write $var ${abi_regs[i]}
@@ -436,8 +436,8 @@ emit_function() {
 # emit_declare_var declare_var
 emit_declare_var() {
     local decl="$1"
-    local ty name; unpack $decl declare_var ty name _
-    local name; unpack $var var name
+    local ty name; unpack $decl "declare_var" ty name _
+    local name; unpack $var "var" name
     scope_insert "$name" "$decl"
 
     local -i var_size=4
@@ -474,8 +474,8 @@ emit_var_write() {
     local node="$1" reg="$2"
     local name="${ast[node]#var }"
     resolve $node; local decl=$res
-    local ty var; unpack $decl declare_var ty var _
-    if try_unpack $ty ty_fun _ _; then
+    local ty var; unpack $decl "declare_var" ty var _
+    if try_unpack $ty "ty_fun" _ _; then
         error "cannot assign to a function"
         show_node $node "\`$name\` refers to a function"
         show_node $decl "\`$name\` declared here"
@@ -507,11 +507,11 @@ emit_statement() {
             local node
             for node in "${stmt[@]:1}"; do
                 local ty var init=''
-                unpack $node declare_var ty var init
+                unpack $node "declare_var" ty var init
                 emit_declare_var $node
                 if [ -n "$init" ]; then
                     local value
-                    unpack $init expr value
+                    unpack $init "expr" value
                     emit_expr $value
                     emit_var_write $var $EAX
                 fi
@@ -648,19 +648,19 @@ emit_expr() {
         call)
             local lhs="${expr[1]}"
             local callee
-            if ! try_unpack $lhs var callee; then
+            if ! try_unpack $lhs "var" callee; then
                 error "indirect calls are not supported"
                 show_node $lhs "calm thy unhingedness"
                 end_diagnostic
                 return
             fi
 
-            local ty decl_var
+            local ty
             resolve $lhs; local fundecl=$res
-            unpack $fundecl declare_var ty decl_var _
+            unpack $fundecl "declare_var" ty _ _
 
             local ty_ret params
-            if ! try_unpack $ty ty_fun ty_ret params; then
+            if ! try_unpack $ty "ty_fun" ty_ret params; then
                 error "\`$callee\` is not a function"
                 show_node $lhs "not a function"
                 show_node $fundecl "\`$callee\` declared here"

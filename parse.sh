@@ -310,7 +310,7 @@ parse_external_declaration() {
         local name="${ast[var]#var }"
         local ty_ret params
 
-        if ! try_unpack $ty ty_fun ty_ret params; then
+        if ! try_unpack $ty "ty_fun" ty_ret params; then
             error "expected \`,\` or \`;\`, found \`{\`"
             show_token $pos "unexpected \`{\`"
             show_node $var "not a function"
@@ -418,8 +418,9 @@ finish_init_declarator() {
 #     { initializer-list , }
 parse_initializer() {
     # TODO: non-trivial initializers
+    local begin=$pos
     parse_assignment_expr
-    mknode "expr $res"
+    mknode "expr $res" $begin
 }
 
 # 6.7 Declarations
@@ -637,6 +638,10 @@ parse_statement() {
 
     case "${toktype[pos]}" in
     # 6.8.4 Selection statements
+    # selection-statement:
+    #     if ( expression ) statement
+    #     if ( expression ) statement else statement
+    #     switch ( expression ) statement
     # 6.8.4.1 The if statement
     kw:if)
         expect kw:if

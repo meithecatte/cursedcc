@@ -57,13 +57,13 @@ scope_insert() {
 # check_redeclaration prev_node cur_node name
 check_redeclaration() {
     local ty1 ty2
-    unpack $1 declare_var ty1 _ _
-    unpack $2 declare_var ty2 _ _
+    unpack $1 "declare_var" ty1 _ _
+    unpack $2 "declare_var" ty2 _ _
     local name=$3
 
     local ret1 ret2 params1 params2
-    if try_unpack $ty1 ty_fun ret1 params1 &&
-        try_unpack $ty2 ty_fun ret2 params2
+    if try_unpack $ty1 "ty_fun" ret1 params1 &&
+        try_unpack $ty2 "ty_fun" ret2 params2
     then
         local params1=(${ast[params1]})
         local params2=(${ast[params2]})
@@ -94,9 +94,9 @@ check_param_list() {
     local param
     for param in "$@"; do
         local ty var=''
-        unpack $param declare_var ty var
+        unpack $param "declare_var" ty var
 
-        if try_unpack $ty ty_void; then
+        if try_unpack $ty "ty_void"; then
             if [ -n "$var" ]; then
                 error "invalid type for parameter"
                 show_node $param "parameter cannot have type \`void\`"
@@ -148,7 +148,7 @@ unfuck_declarator() {
         # 6.7.6.3p1 "A function declarator shall not specify a return type
         # that is a function type or an array type."
         local other_params
-        if try_unpack $base_type ty_fun _ other_params; then
+        if try_unpack $base_type "ty_fun" _ other_params; then
             error "cannot return function from function"
             show_node $1 "function declared here"
             show_node $other_params "return type is a function type"
