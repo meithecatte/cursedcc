@@ -551,6 +551,7 @@ parse_parameter_type_list() {
 #     declaration-specifiers abstract-declarator? # TODO
 parse_parameter_declaration() {
     local begin=$pos
+    local storage_class
     parse_declaration_specifiers; local specifiers=$res
 
     if peek rparen || peek comma; then
@@ -561,6 +562,15 @@ parse_parameter_declaration() {
         unfuck_declarator $declarator $specifiers
 
         mknode "declare_var $ty $var" $begin
+    fi
+
+    # 6.7.6.3p2 The only storage-class specifier that shall occur in a parameter
+    # declaration is register.
+    if [ -n "$storage_class" ]; then
+        local stc_name="${ast[storage_class]#stc_}"
+        error "invalid storage class specifier for parameter"
+        show_node $storage_class "parameter declared as \`$stc_name\`"
+        end_diagnostic
     fi
 }
 
