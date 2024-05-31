@@ -330,6 +330,21 @@ parse_external_declaration() {
             return
         fi
 
+        # 6.9.1p4 The storage-class specifier, if any, in the declaration specifiers
+        # [of a function definition] shall be either extern or static.
+        if [ -n "$storage_class" ]; then
+            local stc_name="${ast[storage_class]#stc_}"
+            case "$stc_name" in
+            extern) ;; # extern doesn't do anything to functions
+            static)
+                fail "TODO: static functions";;
+            *)
+                error "the \`$stc_name\` storage class is not valid for functions"
+                show_node $storage_class "\`$name\` declared \`$stc_name\`"
+                end_diagnostic;;
+            esac
+        fi
+
         functions[$name]=$fundecl
         emit_function $name $params $body
     else
@@ -548,18 +563,20 @@ parse_parameter_type_list() {
 # 6.7.6 Declarators
 # parameter-declaration:
 #     declaration-specifiers declarator
-#     declaration-specifiers abstract-declarator? # TODO
+#     declaration-specifiers abstract-declarator?
 parse_parameter_declaration() {
     local begin=$pos
     local storage_class
-    parse_declaration_specifiers; local specifiers=$res
+    parse_declaration_specifiers; local base_type=$res
 
+    # mvp grammar for the abstract-declarator? case
+    # (we only handle the case where the abstract-declarator is absent)
     if peek rparen || peek comma; then
-        mknode "declare_var $specifiers"
+        mknode "declare_var $base_type"
     else
         parse_declarator; local declarator=$res
         local ty var
-        unfuck_declarator $declarator $specifiers
+        unfuck_declarator $declarator $base_type
 
         mknode "declare_var $ty $var" $begin
     fi
