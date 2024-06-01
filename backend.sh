@@ -28,6 +28,10 @@ CC_LE=14
 CC_G=15
 
 # rex r b w
+# where
+# r - the register in the register field (of which the msb should be encoded)
+# b - the register in the base field
+# w - if non-zero, the instruction uses 64-bit data
 rex() {
     local r=$1 b=$2 w=${3-0}
     local -i byte=0x40
@@ -62,6 +66,17 @@ op_modrm_rbpoff() {
     fi
 }
 
+op_modrm_sym() {
+    local op="$1" reg="$2" sym="$3"
+    rex $reg 0
+    code+="$op"
+    p8 code $((5 + 8 * (reg & 7)))
+    local -i pos
+    binlength pos "$code"
+    reloc "$sym" $R_X86_64_PC32 -4
+    p32 code 0
+}
+
 leave() {
     code+="\xc9"
 }
@@ -90,6 +105,16 @@ mov_rbpoff_reg() {
 mov_reg_rbpoff() {
     local dst="$1" offset="$2"
     op_modrm_rbpoff "\x8b" "$dst" "$offset"
+}
+
+mov_sym_reg() {
+    local sym="$1" src="$2"
+    op_modrm_sym "\x89" "$src" "$sym"
+}
+
+mov_reg_sym() {
+    local dst="$1" sym="$2"
+    op_modrm_sym "\x8b" "$dst" "$sym"
 }
 
 movq_reg_reg() {
@@ -244,15 +269,27 @@ emit_global() {
         for node in ${decl[@]:1}; do
             local ty var init=''
             unpack $node "declare_var" ty var init
-            if [[ -n "$init" ]]; then
-                fail "TODO: global variables"
-            fi
-
+            local name
+            unpack $var "var" name
             if try_unpack $ty "ty_fun" _ _; then
-                local name; unpack $var "var" name
-                scope_insert $name $node
+                if [[ -n "$init" ]]; then
+                    error "function initialized like a variable"
+                    show_node $node "\`$name\` initialized like a variable"
+                    end_diagnostic
+                fi
+
+                scope_insert $name $node sym $name
             else
-                fail "TODO: global variables"
+                if [[ -n "$init" ]]; then
+                    fail "TODO: global variable initializers"
+                fi
+
+                scope_insert $name $node sym $name
+                local var_size=4
+                local offset=${sections[.bss]}
+                (( sections[.bss] += var_size ))
+                symbol_sections["$name"]=.bss
+                symbol_offsets["$name"]=$offset
             fi
         done;;
     nothing) ;;
@@ -295,8 +332,7 @@ emit_prologue() {
             emit_declare_var $param
             emit_var_write $var ${abi_regs[i]}
         else
-            scope_insert $name $param
-            varmap["$name"]=$((8 * (i - 6) + 16))
+            scope_insert $name $param rbp $((8 * (i - 6) + 16))
         fi
         i+=1
     done
@@ -385,8 +421,6 @@ emit_function() {
         subq_reg_imm $RSP $stack_max
     fi
 
-    # name -> offset from rbp
-    local -A varmap=()
     # name -> declaring node (the ones that can be shadowed are not included)
     local -A vars_in_block=()
     # name -> type
@@ -438,12 +472,10 @@ emit_declare_var() {
     local decl="$1"
     local ty name; unpack $decl "declare_var" ty name _
     local name; unpack $var "var" name
-    scope_insert "$name" "$decl"
-
     local -i var_size=4
     local -i stack_offset=$stack_used
     stack_used+=var_size
-    varmap[$name]=$((stack_offset - stack_max))
+    scope_insert "$name" "$decl" rbp $((stack_offset - stack_max))
 
     if (( stack_offset >= stack_max )); then
         internal_error "insufficient stack frame allocated"
@@ -453,26 +485,22 @@ emit_declare_var() {
     fi
 }
 
-check_var_exists() {
-    local name="$1" node="$2"
-    if [ -z "${varmap[$name]-}" ]; then
-        error "cannot find value \`$name\` in this scope"
-        show_node $node "not found in this scope"
-        end_diagnostic
-        return 1
-    fi
-}
-
 emit_var_read() {
     local node="$1" reg="$2"
-    local name="${ast[node]#var }"
-    check_var_exists "$name" "$node" || return
-    mov_reg_rbpoff "$reg" "${varmap[$name]}"
+    resolve $node; local decl=$res
+
+    case $storage_type in
+    rbp) mov_reg_rbpoff "$reg" "$location";;
+    sym) mov_reg_sym "$reg" "$location";;
+    *) fail "TODO(emit_var_read): $storage_type";;
+    esac
 }
 
 emit_var_write() {
     local node="$1" reg="$2"
-    local name="${ast[node]#var }"
+    local name
+    unpack $node "var" name
+    local storage_type location
     resolve $node; local decl=$res
     local ty var; unpack $decl "declare_var" ty var _
     if try_unpack $ty "ty_fun" _ _; then
@@ -483,8 +511,11 @@ emit_var_write() {
         return
     fi
 
-    check_var_exists "$name" "$node" || return
-    mov_rbpoff_reg "${varmap[$name]}" "$reg"
+    case $storage_type in
+    rbp) mov_rbpoff_reg "$location" "$reg";;
+    sym) mov_sym_reg "$location" "$reg";;
+    *) fail "TODO(emit_var_write): $storage_type";;
+    esac
 }
 
 emit_lvalue_write() {
@@ -520,9 +551,7 @@ emit_statement() {
             label user_${stmt[1]}
             emit_statement ${stmt[2]};;
         compound)
-            # allow shadowing
-            local -A vars_in_block=()
-            eval "${varmap[@]@A}"
+            local -A vars_in_block=() # allow shadowing
             eval "${block_scope[@]@A}"
 
             local -i i

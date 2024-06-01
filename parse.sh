@@ -319,7 +319,7 @@ parse_external_declaration() {
         fi
 
         mknode "declare_var $ty $var" $begin; local fundecl=$res
-        scope_insert $name $fundecl
+        scope_insert $name $fundecl sym $name
 
         parse_compound; local body=$res
         if [ -n "${functions[$name]-}" ]; then

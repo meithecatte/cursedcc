@@ -1,34 +1,37 @@
 # maps name to string with the following space-separated fields:
-#  - declaring node (fundecl or declare_var)
-#  TODO(global variables):
-#  - if declare_var:
-#    - storage type ("rbp", ".data" or ".bss")
-#    - offset
+#  - relevant declare_var
+#  - storage type ("rbp", "sym")
+#  - offset or symbol name
 declare -A file_scope=()
 declare in_function=0
 
 # resolve var
-# output in $res
+# output in res, storage_type, location
 resolve() {
     local var=(${ast[$1]})
     local name="${var[1]}"
     if (( in_function )) && [[ -n "${block_scope["$name"]-}" ]]; then
-        res="${block_scope["$name"]}"
+        set -- ${block_scope["$name"]}
     elif [[ -n "${file_scope["$name"]-}" ]]; then
-        res="${file_scope["$name"]}"
+        set -- ${file_scope["$name"]}
     else
         error "\`$name\` undeclared"
         show_node $var "\`$name\`"
+        return 1
     fi
+
+    res=$1
+    storage_type=$2
+    location=$3
 }
 
-# scope_insert name node
+# scope_insert name node storage_type location
 scope_insert() {
-    local name="$1" node="$2"
+    local name="$1" node="$2" storage_type="$3" location="$4"
     if (( in_function )); then
         # TODO: merge declarations if allowed
         if [ -n "${vars_in_block[$name]-}" ] && \
-            ! check_redeclaration "${block_scope[$name]}" "$node" "$name"
+            ! check_redeclaration "${block_scope[$name]%% *}" "$node" "$name"
         then
             error "redefinition of \`$name\`"
             show_node ${vars_in_block[$name]} "\`$name\` first defined here"
@@ -38,19 +41,19 @@ scope_insert() {
         fi
 
         vars_in_block[$name]=$node
-        block_scope[$name]=$node
+        block_scope[$name]="$node $storage_type $location"
     else
         if [ -n "${file_scope[$name]-}" ] && \
-            ! check_redeclaration "${file_scope[$name]}" "$node" "$name"
+            ! check_redeclaration "${file_scope[$name]%% *}" "$node" "$name"
         then
             error "redefinition of \`$name\`"
-            show_node ${file_scope[$name]} "\`$name\` first defined here"
+            show_node ${file_scope[$name]%% *} "\`$name\` first defined here"
             show_node $node "\`$name\` redefined here"
             end_diagnostic
             return 1
         fi
 
-        file_scope[$name]=$node
+        file_scope[$name]="$node $storage_type $location"
     fi
 }
 

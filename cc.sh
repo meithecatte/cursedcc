@@ -51,6 +51,10 @@ sections[.text]=""
 section_types[.text]="$SHT_PROGBITS"
 section_attrs[.text]=$((SHF_ALLOC | SHF_EXECINSTR))
 
+sections[.bss]=0
+section_types[.bss]="$SHT_NOBITS"
+section_attrs[.bss]="$((SHF_ALLOC | SHF_WRITE))"
+
 parse
 
 declare -p ast

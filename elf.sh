@@ -22,6 +22,7 @@ SHT_PROGBITS=1
 SHT_SYMTAB=2
 SHT_STRTAB=3
 SHT_RELA=4
+SHT_NOBITS=8
 SHT_REL=9
 
 SHF_WRITE=1
@@ -214,7 +215,11 @@ emit_elf() {
     for section_name in "${section_order[@]}"; do
         local section="${sections[$section_name]}"
         local section_size
-        binlength section_size "$section"
+        if (( ${section_types[$section_name]} == SHT_NOBITS )); then
+            section_size="$section"
+        else
+            binlength section_size "$section"
+        fi
         p32 section_headers "${shstrtab_positions[$section_name]}" # sh_name
         p32 section_headers "${section_types[$section_name]}" # sh_type
         psz section_headers "${section_attrs[$section_name]-0}" # sh_flags
@@ -235,8 +240,11 @@ emit_elf() {
         p32 section_headers "${section_info[$section_name]-0}" # sh_info
         psz section_headers 0 # sh_addralign
         psz section_headers $entsize # sh_entsize
-        section_data+="$section"
-        position+=$section_size
+
+        if (( ${section_types[$section_name]} != SHT_NOBITS )); then
+            section_data+="$section"
+            position+=$section_size
+        fi
     done
 
     exec {fd}>"$filename"
