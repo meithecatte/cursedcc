@@ -280,16 +280,25 @@ emit_global() {
 
                 scope_insert $name $node sym $name
             else
-                if [[ -n "$init" ]]; then
-                    fail "TODO: global variable initializers"
-                fi
-
                 scope_insert $name $node sym $name
-                local var_size=4
-                local offset=${sections[.bss]}
-                (( sections[.bss] += var_size ))
-                symbol_sections["$name"]=.bss
-                symbol_offsets["$name"]=$offset
+
+                if [[ -n "$init" ]]; then
+                    local expr
+                    unpack $init "expr" expr
+                    eval_expr $expr; local val=$res
+
+                    local offset
+                    binlength offset "${sections[.data]}"
+                    p32 sections[.data] $val
+                    symbol_sections["$name"]=.data
+                    symbol_offsets["$name"]=$offset
+                else
+                    local var_size=4
+                    local offset=${sections[.bss]}
+                    (( sections[.bss] += var_size ))
+                    symbol_sections["$name"]=.bss
+                    symbol_offsets["$name"]=$offset
+                fi
             fi
         done;;
     nothing) ;;

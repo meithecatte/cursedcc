@@ -10,6 +10,7 @@ SELFDIR="$(dirname -- "${BASH_SOURCE[0]}")"
 . "$SELFDIR/diagnostics.sh"
 . "$SELFDIR/parse.sh"
 . "$SELFDIR/elf.sh"
+. "$SELFDIR/eval.sh"
 . "$SELFDIR/jumps.sh"
 . "$SELFDIR/types.sh"
 . "$SELFDIR/backend.sh"
@@ -48,12 +49,16 @@ else
 fi
 
 sections[.text]=""
-section_types[.text]="$SHT_PROGBITS"
+section_types[.text]=$SHT_PROGBITS
 section_attrs[.text]=$((SHF_ALLOC | SHF_EXECINSTR))
 
+sections[.data]=""
+section_types[.data]=$SHT_PROGBITS
+section_attrs[.text]=$((SHF_ALLOC | SHF_WRITE))
+
 sections[.bss]=0
-section_types[.bss]="$SHT_NOBITS"
-section_attrs[.bss]="$((SHF_ALLOC | SHF_WRITE))"
+section_types[.bss]=$SHT_NOBITS
+section_attrs[.bss]=$((SHF_ALLOC | SHF_WRITE))
 
 parse
 
