@@ -444,7 +444,9 @@ peek_declaration_specifiers() {
     peek kw:int || peek kw:void || peek kw:extern || peek kw:static
 }
 
-# returns into storage_class and res
+# returns:
+# storage_class as $storage_class
+# type as $res
 parse_declaration_specifiers() {
     local type_specifiers=()
     storage_class=''
@@ -979,10 +981,10 @@ parse_assignment_expr() {
 
     case "${toktype[pos]}" in
     assn|pluseq|minuseq|stareq|diveq|modeq|shleq|shreq|bandeq|boreq|xoreq)
-        local lhs=$res op="${toktype[pos]}" assn_pos=$pos
+        local lhs=$res op="${toktype[pos]}"
         pos+=1
         parse_assignment_expr; local rhs=$res
-        mknode "$op $lhs $rhs $assn_pos" $begin;;
+        mknode "$op $lhs $rhs" $begin;;
     *)  finish_conditional_expr;;
     esac
 }

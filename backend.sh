@@ -261,6 +261,7 @@ call_symbol() {
     p32 code 0
 }
 
+# accepts storage class in global variable $storage_class
 emit_global() {
     local decl=(${ast[$1]})
     case ${decl[0]} in
@@ -528,13 +529,13 @@ emit_var_write() {
 }
 
 emit_lvalue_write() {
-    local lvalue="$1" reg="$2" assn_pos="$3"
+    local lvalue="$1" reg="$2"
     local -a expr=(${ast[lvalue]})
     case ${expr[0]} in
     var)
         emit_var_write "$lvalue" "$reg";;
     *)  error "invalid left-hand side of assignment"
-        show_token $assn_pos
+        show_node $lvalue "not an lvalue"
         end_diagnostic;;
     esac
 }
@@ -761,7 +762,7 @@ emit_expr() {
             fi;;
         assn)
             emit_expr ${expr[2]}
-            emit_lvalue_write ${expr[1]} $EAX ${expr[3]};;
+            emit_lvalue_write ${expr[1]} $EAX;;
         bnot)
             emit_expr ${expr[1]}
             not_reg $EAX;;
