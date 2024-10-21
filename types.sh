@@ -16,7 +16,7 @@ resolve() {
         set -- ${file_scope["$name"]}
     else
         error "\`$name\` undeclared"
-        show_node $var "\`$name\`"
+        show_node $1 "\`$name\` has not been declared"
         return 1
     fi
 
