@@ -8,6 +8,7 @@ SELFDIR="$(dirname -- "${BASH_SOURCE[0]}")"
 . "$SELFDIR/backtrace.sh"
 . "$SELFDIR/binpack.sh"
 . "$SELFDIR/diagnostics.sh"
+. "$SELFDIR/ast.sh"
 . "$SELFDIR/parse.sh"
 . "$SELFDIR/elf.sh"
 . "$SELFDIR/eval.sh"
@@ -61,8 +62,6 @@ section_types[.bss]=$SHT_NOBITS
 section_attrs[.bss]=$((SHF_ALLOC | SHF_WRITE))
 
 parse
-
-declare -p ast
 
 if (( error_count > 0 )); then
     exit 1
