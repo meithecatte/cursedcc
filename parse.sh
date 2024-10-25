@@ -772,8 +772,9 @@ check_expr_start() {
 
     case "${toktype[pos]}" in
     semi|rparen|rbrace)
-        error "expected expression"
-        show_token $pos
+        spell_token "${toktype[pos]}"
+        error "expected expression before $spelled"
+        show_token $pos "expression expected here"
         end_diagnostic
         return 1;;
     esac
