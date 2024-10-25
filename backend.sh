@@ -274,7 +274,7 @@ emit_global() {
             unpack $var "var" name
             if try_unpack $ty "ty_fun" _ _; then
                 if [[ -n "$init" ]]; then
-                    error "function initialized like a variable"
+                    error "function declaration includes an initializer"
                     show_node $node "\`$name\` initialized like a variable"
                     end_diagnostic
                 fi
