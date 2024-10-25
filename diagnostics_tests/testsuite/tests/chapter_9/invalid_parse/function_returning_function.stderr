@@ -4,9 +4,9 @@
 6 | [0mint foo(void)(void);
 [94;1m  | [91;1m    ^^^^^^^^^ function declared here
 [94;1m  | [0m
-[94;1m --> [0mtestsuite/tests/chapter_9/invalid_parse/function_returning_function.c:6:15
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_parse/function_returning_function.c:6:14
 [94;1m  | 
 6 | [0mint foo(void)(void);
-[94;1m  | [91;1m              ^^^^ return type is a function type
+[94;1m  | [91;1m             ^^^^^^ return type is a function type
 [94;1m  | [0m
 

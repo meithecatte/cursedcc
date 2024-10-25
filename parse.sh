@@ -490,9 +490,7 @@ parse_direct_declarator() {
     fi
 
     while peek lparen; do
-        expect lparen
-        parse_parameter_type_list; local params=$res
-        expect rparen
+        parse_parens_parameter_type_list; local params=$res
         mknode "decl_fun $cur $params" $begin; local cur=$res
     done
 }
@@ -505,10 +503,11 @@ parse_direct_declarator() {
 # parameter-list:
 #     parameter-declaration
 #     parameter-list , parameter-declaration
-parse_parameter_type_list() {
+parse_parens_parameter_type_list() {
     local param_list=()
     local begin=$pos
 
+    expect lparen
     parse_parameter_declaration
     param_list+=($res)
 
@@ -519,6 +518,7 @@ parse_parameter_type_list() {
         param_list+=($res)
     done
 
+    expect rparen
     check_param_list "${param_list[@]}"
 }
 
