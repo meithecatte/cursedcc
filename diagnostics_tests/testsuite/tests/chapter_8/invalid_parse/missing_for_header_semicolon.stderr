@@ -1,0 +1,7 @@
+[91;1merror[39m: incomplete for loop header[0m
+[94;1m --> [0mtestsuite/tests/chapter_8/invalid_parse/missing_for_header_semicolon.c:2:27
+[94;1m  | 
+2 | [0m    for (int i = 0; i < 10)
+[94;1m  | [91;1m                          ^ one more clause expected
+[94;1m  | [0m
+

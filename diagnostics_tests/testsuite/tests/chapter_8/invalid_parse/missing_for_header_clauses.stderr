@@ -1,0 +1,7 @@
+[91;1merror[39m: incomplete for loop header[0m
+[94;1m --> [0mtestsuite/tests/chapter_8/invalid_parse/missing_for_header_clauses.c:2:20
+[94;1m  | 
+2 | [0m    for (2 + 2 == 4)
+[94;1m  | [91;1m                   ^ expected two more clauses
+[94;1m  | [0m
+

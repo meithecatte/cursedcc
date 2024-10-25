@@ -696,14 +696,31 @@ parse_statement() {
             done
         else
             parse_expr; mknode "expr $res"; local init=$res
+            if peek rparen; then
+                error "incomplete for loop header"
+                show_token $pos "expected two more clauses"
+                end_diagnostic
+                return 1
+            fi
             parse_semi
         fi
 
         if peek semi; then
             pos+=1
             mknode "literal 1"; local cond=$res
+        elif peek rparen; then
+            error "incomplete for loop header"
+            show_token $pos "one more clause expected"
+            end_diagnostic
+            return 1
         else
             parse_expr; local cond=$res
+            if peek rparen; then
+                error "incomplete for loop header"
+                show_token $pos "one more clause expected"
+                end_diagnostic
+                return 1
+            fi
             parse_semi
         fi
 
