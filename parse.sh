@@ -797,8 +797,9 @@ parse_primary_expr() {
         expect rparen
         res=$result;;
     *)
-        error "expression not recognized"
-        show_token $pos
+        spell_token "${toktype[pos]}"
+        error "expected expression, got $spelled"
+        show_token $pos "expression expected"
         end_diagnostic
         return 1;;
     esac
