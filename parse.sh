@@ -839,11 +839,12 @@ parse_postfix_expr() {
 parse_unary_expr() {
     check_expr_start
 
+    local begin=$pos
     case "${toktype[pos]}" in
-    plus)   pos+=1; parse_unary_expr; mknode "unary_plus $res";;
-    minus)  pos+=1; parse_unary_expr; mknode "negate $res";;
-    bnot)   pos+=1; parse_unary_expr; mknode "bnot $res";;
-    lnot)   pos+=1; parse_unary_expr; mknode "lnot $res";;
+    plus)   pos+=1; parse_unary_expr; mknode "unary_plus $res" $begin;;
+    minus)  pos+=1; parse_unary_expr; mknode "negate $res" $begin;;
+    bnot)   pos+=1; parse_unary_expr; mknode "bnot $res" $begin;;
+    lnot)   pos+=1; parse_unary_expr; mknode "lnot $res" $begin;;
     *)      parse_postfix_expr;;
     esac
 }
