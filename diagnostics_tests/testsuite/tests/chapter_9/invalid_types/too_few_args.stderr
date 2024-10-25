@@ -1,0 +1,12 @@
+[91;1merror[39m: not enough arguments for call to `foo`[0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_types/too_few_args.c:7:12
+[94;1m  | 
+7 | [0m    return foo(1);
+[94;1m  | [91;1m           ^^^^^^ 1 argument provided to `foo`
+[94;1m  | [0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_types/too_few_args.c:1:1
+[94;1m  | 
+1 | [0mint foo(int a, int b) {
+[94;1m  | [91;1m^^^^^^^^^^^^^^^^^^^^^ `foo` declared with 2 parameters
+[94;1m  | [0m
+

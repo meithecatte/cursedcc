@@ -1,0 +1,12 @@
+[91;1merror[39m: function `foo` is defined twice[0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_types/multiple_function_definitions.c:2:1
+[94;1m  | 
+2 | [0mint foo(void){
+[94;1m  | [91;1m^^^^^^^^^^^^^ `foo` first defined here
+[94;1m  | [0m
+[94;1m  --> [0mtestsuite/tests/chapter_9/invalid_types/multiple_function_definitions.c:10:1
+[94;1m   | 
+10 | [0mint foo(void){
+[94;1m   | [91;1m^^^^^^^^^^^^^ `foo redefined here
+[94;1m   | [0m
+

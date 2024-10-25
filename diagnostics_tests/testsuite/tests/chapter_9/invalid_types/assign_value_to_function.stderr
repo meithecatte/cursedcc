@@ -1,0 +1,12 @@
+[91;1merror[39m: cannot assign to a function[0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_types/assign_value_to_function.c:3:5
+[94;1m  | 
+3 | [0m    x = 3;
+[94;1m  | [91;1m    ^ `x` refers to a function
+[94;1m  | [0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_types/assign_value_to_function.c:2:9
+[94;1m  | 
+2 | [0m    int x(void);
+[94;1m  | [91;1m        ^^^^^^^ `x` declared here
+[94;1m  | [0m
+

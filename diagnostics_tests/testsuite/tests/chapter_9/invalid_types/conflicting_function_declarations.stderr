@@ -1,0 +1,12 @@
+[91;1merror[39m: conflicting declarations of `foo`[0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_types/conflicting_function_declarations.c:1:5
+[94;1m  | 
+1 | [0mint foo(int a);
+[94;1m  | [91;1m    ^^^^^^^^^^ `foo` defined here with 1 parameters
+[94;1m  | [0m
+[94;1m  --> [0mtestsuite/tests/chapter_9/invalid_types/conflicting_function_declarations.c:10:1
+[94;1m   | 
+10 | [0mint foo(int a, int b) {
+[94;1m   | [91;1m^^^^^^^^^^^^^^^^^^^^^ `foo` redefined with 2 parameters
+[94;1m   | [0m
+
