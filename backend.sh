@@ -326,6 +326,9 @@ emit_prologue() {
     local -a params=(${ast[$1]})
     local -i i=0
     local param
+    # We have already checked for duplicate parameter names
+    # in check_param_list. Avoid emitting a duplicate error.
+    local suppress_scope_errors=1
     for param in "${params[@]:1}"; do
         local ty var=''
         unpack $param "declare_var" ty var

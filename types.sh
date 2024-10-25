@@ -31,7 +31,8 @@ scope_insert() {
     if (( in_function )); then
         # TODO: merge declarations if allowed
         if [ -n "${vars_in_block[$name]-}" ] && \
-            ! check_redeclaration "${block_scope[$name]%% *}" "$node" "$name"
+            ! check_redeclaration "${block_scope[$name]%% *}" "$node" "$name" && \
+            (( ! ${suppress_scope_errors:-0} ))
         then
             error "redefinition of \`$name\`"
             show_node ${vars_in_block[$name]} "\`$name\` first defined here"
@@ -44,7 +45,8 @@ scope_insert() {
         block_scope[$name]="$node $storage_type $location"
     else
         if [ -n "${file_scope[$name]-}" ] && \
-            ! check_redeclaration "${file_scope[$name]%% *}" "$node" "$name"
+            ! check_redeclaration "${file_scope[$name]%% *}" "$node" "$name" && \
+            (( ! ${suppress_scope_errors:-0} ))
         then
             error "redefinition of \`$name\`"
             show_node ${file_scope[$name]%% *} "\`$name\` first defined here"
