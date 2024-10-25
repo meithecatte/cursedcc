@@ -1,0 +1,7 @@
+[91;1merror[39m: expected expression, got `int`[0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_parse/function_call_declaration.c:7:16
+[94;1m  | 
+7 | [0m    return foo(int a);
+[94;1m  | [91;1m               ^^^ expression expected
+[94;1m  | [0m
+

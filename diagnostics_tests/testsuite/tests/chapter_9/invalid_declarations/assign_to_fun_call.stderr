@@ -1,0 +1,7 @@
+[91;1merror[39m: invalid left-hand side of assignment[0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_declarations/assign_to_fun_call.c:7:5
+[94;1m  | 
+7 | [0m    x() = 1;
+[94;1m  | [91;1m    ^^^ not an lvalue
+[94;1m  | [0m
+

@@ -1,0 +1,12 @@
+[91;1merror[39m: redefinition of `foo`[0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_declarations/redefine_var_as_fun.c:8:9
+[94;1m  | 
+8 | [0m    int foo = 1;
+[94;1m  | [91;1m        ^^^^^^^ `foo` first defined here
+[94;1m  | [0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_declarations/redefine_var_as_fun.c:9:9
+[94;1m  | 
+9 | [0m    int foo(void);
+[94;1m  | [91;1m        ^^^^^^^^^ `foo` redefined here
+[94;1m  | [0m
+

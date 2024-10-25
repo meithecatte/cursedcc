@@ -1,0 +1,7 @@
+[91;1merror[39m: expected type, found `)`[0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_parse/trailing_comma_decl.c:2:15
+[94;1m  | 
+2 | [0mint foo(int a,) {
+[94;1m  | [91;1m              ^ type expected
+[94;1m  | [0m
+

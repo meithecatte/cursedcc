@@ -1,0 +1,7 @@
+[91;1merror[39m: expected `)`, got `{`[0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_parse/unclosed_paren_decl.c:1:22
+[94;1m  | 
+1 | [0mint foo(int a, int b {
+[94;1m  | [91;1m                     ^ `)` expected here
+[94;1m  | [0m
+

@@ -1,0 +1,6 @@
+[91;1merror[39m: `a` undeclared[0m
+[94;1m  --> [0mtestsuite/tests/chapter_9/invalid_declarations/wrong_parameter_names.c:11:12
+[94;1m   | 
+11 | [0m    return a;
+[94;1m   | [91;1m           ^ `a` has not been declared
+[94;1m   | [0m

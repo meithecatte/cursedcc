@@ -1,0 +1,7 @@
+[91;1merror[39m: non-variable declaration in `for` loop[0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_parse/fun_decl_for_loop.c:3:14
+[94;1m  | 
+3 | [0m    for (int f(void); ; ) {
+[94;1m  | [91;1m             ^^^^^^^ function `f` declared here
+[94;1m  | [0m
+

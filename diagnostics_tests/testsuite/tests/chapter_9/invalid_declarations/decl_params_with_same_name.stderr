@@ -1,0 +1,12 @@
+[91;1merror[39m: redefinition of parameter `a`[0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_declarations/decl_params_with_same_name.c:3:9
+[94;1m  | 
+3 | [0mint foo(int a, int a);
+[94;1m  | [91;1m        ^^^^^ `a` first defined here
+[94;1m  | [0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_declarations/decl_params_with_same_name.c:3:16
+[94;1m  | 
+3 | [0mint foo(int a, int a);
+[94;1m  | [91;1m               ^^^^^ `a` redefined here
+[94;1m  | [0m
+

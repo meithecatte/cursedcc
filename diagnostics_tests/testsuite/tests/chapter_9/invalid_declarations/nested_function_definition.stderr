@@ -1,0 +1,7 @@
+[91;1merror[39m: expected `;`, got `{`[0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_declarations/nested_function_definition.c:3:19
+[94;1m  | 
+3 | [0m    int foo(void) {
+[94;1m  | [91;1m                  ^ `;` expected here
+[94;1m  | [0m
+

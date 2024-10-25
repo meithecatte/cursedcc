@@ -1,0 +1,7 @@
+[91;1merror[39m: function initialized like a variable[0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_parse/initialize_function_as_variable.c:6:5
+[94;1m  | 
+6 | [0mint foo(void) = 3;
+[94;1m  | [91;1m    ^^^^^^^^^^^^^ `foo` initialized like a variable
+[94;1m  | [0m
+

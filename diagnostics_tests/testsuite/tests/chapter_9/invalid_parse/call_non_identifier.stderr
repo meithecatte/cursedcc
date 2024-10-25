@@ -1,0 +1,7 @@
+[91;1merror[39m: indirect calls are not supported[0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_parse/call_non_identifier.c:8:12
+[94;1m  | 
+8 | [0m    return 1();
+[94;1m  | [91;1m           ^ calm thy unhingedness
+[94;1m  | [0m
+

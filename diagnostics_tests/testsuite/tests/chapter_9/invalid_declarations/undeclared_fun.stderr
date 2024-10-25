@@ -1,0 +1,6 @@
+[91;1merror[39m: `foo` undeclared[0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_declarations/undeclared_fun.c:3:12
+[94;1m  | 
+3 | [0m    return foo(3);
+[94;1m  | [91;1m           ^^^ `foo` has not been declared
+[94;1m  | [0m

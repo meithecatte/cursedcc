@@ -1,0 +1,7 @@
+[91;1merror[39m: expected `)`, got `}`[0m
+[94;1m --> [0mtestsuite/tests/chapter_9/invalid_parse/decl_wrong_closing_delim.c:4:21
+[94;1m  | 
+4 | [0mint foo(int x, int y} { return x + y; }
+[94;1m  | [91;1m                    ^ `)` expected here
+[94;1m  | [0m
+
