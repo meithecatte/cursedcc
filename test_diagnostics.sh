@@ -69,7 +69,7 @@ check_testcase() {
 }
 
 check_chapter() {
-    for name in $TESTDIR/chapter_$1/invalid_*/*; do
+    for name in $TESTDIR/chapter_$1/invalid_*/*.c; do
         if [[ -f "$name" ]]; then
             check_testcase "$name"
         fi
