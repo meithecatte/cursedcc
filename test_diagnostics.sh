@@ -6,12 +6,14 @@ GOLDDIR="diagnostics_tests"
 
 chapter=0
 latest_only=0
+fail_fast=0
 declare -A extra_credit
 
 while (( $# > 0 )); do
     case "$1" in
     --chapter) chapter="$2"; shift 2;;
     --latest-only) latest_only=1; shift;;
+    --fail-fast) fail_fast=1; shift;;
     --bitwise) extra_credit["bitwise"]=1; shift;;
     --compound) extra_credit["compound"]=1; shift;;
     --increment) extra_credit["increment"]=1; shift;;
@@ -34,6 +36,12 @@ fi
 outfile="$(mktemp ccsh.XXXXXXXXXX.stderr)"
 trap "rm -- '$outfile'" EXIT
 
+fail() {
+    if (( fail_fast )); then
+        exit 1
+    fi
+}
+
 ask_approve() {
     local ans
     echo -n "Approve new output? (y/n) " >&2
@@ -42,7 +50,7 @@ ask_approve() {
         mkdir -p "$(dirname "$goldfile")"
         cp "$outfile" "$goldfile"
     else
-        exit 1
+        fail
     fi
 }
 
@@ -50,7 +58,7 @@ check_testcase() {
     local goldfile="$GOLDDIR/${1%.c}.stderr"
     if ./cc.sh -c $1 -o /dev/null 2>"$outfile"; then
         echo "Test failed: $1 (exit code 0)" >&2
-        exit 1
+        fail
     elif [[ -f "$goldfile" ]]; then
         if ! cmp -s "$goldfile" "$outfile"; then
             echo "Test failed: $1" >&2
