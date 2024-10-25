@@ -49,6 +49,10 @@ else
     lex "$filename" < <(cpp "$filename")
 fi
 
+if (( error_count > 0 )); then
+    exit 1
+fi
+
 sections[.text]=""
 section_types[.text]=$SHT_PROGBITS
 section_attrs[.text]=$((SHF_ALLOC | SHF_EXECINSTR))
