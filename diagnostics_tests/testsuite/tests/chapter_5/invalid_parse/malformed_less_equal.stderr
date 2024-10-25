@@ -1,0 +1,7 @@
+[91;1merror[39m: expected expression, got `=`[0m
+[94;1m --> [0mtestsuite/tests/chapter_5/invalid_parse/malformed_less_equal.c:6:16
+[94;1m  | 
+6 | [0m    return 1 < = 2;
+[94;1m  | [91;1m               ^ expression expected
+[94;1m  | [0m
+

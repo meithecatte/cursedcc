@@ -1,0 +1,7 @@
+[91;1merror[39m: expected expression before `;`[0m
+[94;1m --> [0mtestsuite/tests/chapter_5/invalid_parse/malformed_decrement.c:6:10
+[94;1m  | 
+6 | [0m    a - -;
+[94;1m  | [91;1m         ^ expression expected here
+[94;1m  | [0m
+

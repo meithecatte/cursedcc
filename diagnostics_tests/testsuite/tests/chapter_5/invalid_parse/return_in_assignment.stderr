@@ -1,0 +1,7 @@
+[91;1merror[39m: expected identifier, got literal[0m
+[94;1m --> [0mtestsuite/tests/chapter_5/invalid_parse/return_in_assignment.c:3:9
+[94;1m  | 
+3 | [0m    int 10 = return 0;
+[94;1m  | [91;1m        ^^ identifier expected here
+[94;1m  | [0m
+

@@ -1,0 +1,6 @@
+[91;1merror[39m: `a` undeclared[0m
+[94;1m --> [0mtestsuite/tests/chapter_5/invalid_semantics/undeclared_var_and.c:2:17
+[94;1m  | 
+2 | [0m    return 0 && a;
+[94;1m  | [91;1m                ^ `a` has not been declared
+[94;1m  | [0m

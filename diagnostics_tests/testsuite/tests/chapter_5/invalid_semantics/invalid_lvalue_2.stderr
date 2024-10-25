@@ -1,0 +1,7 @@
+[91;1merror[39m: invalid left-hand side of assignment[0m
+[94;1m --> [0mtestsuite/tests/chapter_5/invalid_semantics/invalid_lvalue_2.c:3:6
+[94;1m  | 
+3 | [0m    !a = 3;
+[94;1m  | [91;1m     ^ not an lvalue
+[94;1m  | [0m
+

@@ -1,0 +1,7 @@
+[91;1merror[39m: expected `;`, got `)`[0m
+[94;1m --> [0mtestsuite/tests/chapter_2/invalid_parse/extra_paren.c:3:15
+[94;1m  | 
+3 | [0m    return (3));
+[94;1m  | [91;1m              ^ `;` expected here
+[94;1m  | [0m
+

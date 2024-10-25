@@ -1,0 +1,7 @@
+[91;1merror[39m: expected expression, got `/`[0m
+[94;1m --> [0mtestsuite/tests/chapter_3/invalid_parse/missing_first_op.c:2:12
+[94;1m  | 
+2 | [0m    return /3;
+[94;1m  | [91;1m           ^ expression expected
+[94;1m  | [0m
+

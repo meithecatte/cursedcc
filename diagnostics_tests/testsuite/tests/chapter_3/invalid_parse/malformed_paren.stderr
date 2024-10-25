@@ -1,0 +1,7 @@
+[91;1merror[39m: indirect calls are not supported[0m
+[94;1m --> [0mtestsuite/tests/chapter_3/invalid_parse/malformed_paren.c:2:12
+[94;1m  | 
+2 | [0m    return 2 (- 3);
+[94;1m  | [91;1m           ^ calm thy unhingedness
+[94;1m  | [0m
+

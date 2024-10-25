@@ -1,0 +1,7 @@
+[91;1merror[39m: expected `;`, got identifier[0m
+[94;1m --> [0mtestsuite/tests/chapter_5/invalid_parse/invalid_specifier.c:2:13
+[94;1m  | 
+2 | [0m    int foo bar = 3;
+[94;1m  | [91;1m            ^^^ `;` expected here
+[94;1m  | [0m
+

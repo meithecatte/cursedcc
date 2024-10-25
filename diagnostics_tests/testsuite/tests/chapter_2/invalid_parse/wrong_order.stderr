@@ -1,0 +1,7 @@
+[91;1merror[39m: expected expression before `;`[0m
+[94;1m --> [0mtestsuite/tests/chapter_2/invalid_parse/wrong_order.c:2:14
+[94;1m  | 
+2 | [0m    return 4-;
+[94;1m  | [91;1m             ^ expression expected here
+[94;1m  | [0m
+

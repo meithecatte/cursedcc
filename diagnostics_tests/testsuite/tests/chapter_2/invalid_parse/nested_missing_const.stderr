@@ -1,0 +1,7 @@
+[91;1merror[39m: expected expression before `;`[0m
+[94;1m --> [0mtestsuite/tests/chapter_2/invalid_parse/nested_missing_const.c:3:14
+[94;1m  | 
+3 | [0m    return -~;
+[94;1m  | [91;1m             ^ expression expected here
+[94;1m  | [0m
+
