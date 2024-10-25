@@ -1,0 +1,12 @@
+[91;1merror[39m: redefinition of `a`[0m
+[94;1m --> [0mtestsuite/tests/chapter_7/invalid_semantics/double_define.c:3:13
+[94;1m  | 
+3 | [0m        int a;
+[94;1m  | [91;1m            ^ `a` first defined here
+[94;1m  | [0m
+[94;1m --> [0mtestsuite/tests/chapter_7/invalid_semantics/double_define.c:4:13
+[94;1m  | 
+4 | [0m        int a;
+[94;1m  | [91;1m            ^ `a` redefined here
+[94;1m  | [0m
+

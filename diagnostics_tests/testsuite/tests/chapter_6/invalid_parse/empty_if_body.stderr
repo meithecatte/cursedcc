@@ -1,0 +1,7 @@
+[91;1merror[39m: expected expression, got `else`[0m
+[94;1m --> [0mtestsuite/tests/chapter_6/invalid_parse/empty_if_body.c:2:12
+[94;1m  | 
+2 | [0m    if (0) else return 0;
+[94;1m  | [91;1m           ^^^^ expression expected
+[94;1m  | [0m
+

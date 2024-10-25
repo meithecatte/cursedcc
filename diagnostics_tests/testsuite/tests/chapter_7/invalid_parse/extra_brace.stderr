@@ -1,0 +1,7 @@
+[91;1merror[39m: expected type, found `return`[0m
+[94;1m --> [0mtestsuite/tests/chapter_7/invalid_parse/extra_brace.c:5:5
+[94;1m  | 
+5 | [0m    return 2;
+[94;1m  | [91;1m    ^^^^^^ type expected
+[94;1m  | [0m
+

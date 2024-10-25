@@ -1,0 +1,7 @@
+[91;1merror[39m: expected `;`, got `return`[0m
+[94;1m --> [0mtestsuite/tests/chapter_8/invalid_parse/do_missing_semicolon.c:5:5
+[94;1m  | 
+5 | [0m    return 0;
+[94;1m  | [91;1m    ^^^^^^ `;` expected here
+[94;1m  | [0m
+

@@ -1,0 +1,6 @@
+[91;1merror[39m: `b` undeclared[0m
+[94;1m --> [0mtestsuite/tests/chapter_7/invalid_semantics/use_before_declare.c:4:9
+[94;1m  | 
+4 | [0m        b = 10;
+[94;1m  | [91;1m        ^ `b` has not been declared
+[94;1m  | [0m

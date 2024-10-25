@@ -1,0 +1,6 @@
+[91;1merror[39m: `a` undeclared[0m
+[94;1m --> [0mtestsuite/tests/chapter_7/invalid_semantics/out_of_scope.c:5:12
+[94;1m  | 
+5 | [0m    return a;
+[94;1m  | [91;1m           ^ `a` has not been declared
+[94;1m  | [0m

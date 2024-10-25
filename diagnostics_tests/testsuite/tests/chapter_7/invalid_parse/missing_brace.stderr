@@ -1,0 +1,12 @@
+[91;1merror[39m: unclosed block[0m
+[94;1m --> [0mtestsuite/tests/chapter_7/invalid_parse/missing_brace.c:1:16
+[94;1m  | 
+1 | [0mint main(void) {
+[94;1m  | [91;1m               ^ block opened here
+[94;1m  | [0m
+[94;1m --> [0mtestsuite/tests/chapter_7/invalid_parse/missing_brace.c:5:2
+[94;1m  | 
+5 | [0m}
+[94;1m  | [91;1m ^ closing brace expected here
+[94;1m  | [0m
+

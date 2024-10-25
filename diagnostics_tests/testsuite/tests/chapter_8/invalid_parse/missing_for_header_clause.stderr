@@ -1,0 +1,7 @@
+[91;1merror[39m: expected expression before `)`[0m
+[94;1m --> [0mtestsuite/tests/chapter_8/invalid_parse/missing_for_header_clause.c:2:20
+[94;1m  | 
+2 | [0m    for (int i = 0;)
+[94;1m  | [91;1m                   ^ expression expected here
+[94;1m  | [0m
+

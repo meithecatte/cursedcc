@@ -1,0 +1,7 @@
+[91;1merror[39m: expected expression, got `{`[0m
+[94;1m --> [0mtestsuite/tests/chapter_7/invalid_parse/ternary_blocks.c:3:16
+[94;1m  | 
+3 | [0m    return 1 ? { a = 2 } : a = 4;
+[94;1m  | [91;1m               ^ expression expected
+[94;1m  | [0m
+

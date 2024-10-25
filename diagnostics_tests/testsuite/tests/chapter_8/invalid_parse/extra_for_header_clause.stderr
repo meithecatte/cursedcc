@@ -1,0 +1,7 @@
+[91;1merror[39m: expected `)`, got `;`[0m
+[94;1m --> [0mtestsuite/tests/chapter_8/invalid_parse/extra_for_header_clause.c:2:38
+[94;1m  | 
+2 | [0m    for (int i = 0; i < 10; i = i + 1; )
+[94;1m  | [91;1m                                     ^ `)` expected here
+[94;1m  | [0m
+

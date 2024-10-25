@@ -1,0 +1,7 @@
+[91;1merror[39m: expected expression before `)`[0m
+[94;1m --> [0mtestsuite/tests/chapter_8/invalid_parse/do_while_empty_parens.c:4:12
+[94;1m  | 
+4 | [0m    while ();
+[94;1m  | [91;1m           ^ expression expected here
+[94;1m  | [0m
+

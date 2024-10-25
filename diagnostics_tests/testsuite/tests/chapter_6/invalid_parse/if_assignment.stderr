@@ -1,0 +1,7 @@
+[91;1merror[39m: expected expression, got `if`[0m
+[94;1m --> [0mtestsuite/tests/chapter_6/invalid_parse/if_assignment.c:3:13
+[94;1m  | 
+3 | [0m    int a = if (flag)
+[94;1m  | [91;1m            ^^ expression expected
+[94;1m  | [0m
+

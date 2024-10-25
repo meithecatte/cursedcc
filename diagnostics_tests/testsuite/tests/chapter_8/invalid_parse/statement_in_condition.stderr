@@ -1,0 +1,7 @@
+[91;1merror[39m: expected expression, got `int`[0m
+[94;1m --> [0mtestsuite/tests/chapter_8/invalid_parse/statement_in_condition.c:2:11
+[94;1m  | 
+2 | [0m    while(int a) {
+[94;1m  | [91;1m          ^^^ expression expected
+[94;1m  | [0m
+

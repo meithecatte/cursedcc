@@ -1,0 +1,7 @@
+[91;1merror[39m: `break` can only be used within a loop or a switch[0m
+[94;1m --> [0mtestsuite/tests/chapter_8/invalid_semantics/break_not_in_loop.c:3:9
+[94;1m  | 
+3 | [0m        break;
+[94;1m  | [91;1m        ^^^^^^ not in a loop or a switch
+[94;1m  | [0m
+

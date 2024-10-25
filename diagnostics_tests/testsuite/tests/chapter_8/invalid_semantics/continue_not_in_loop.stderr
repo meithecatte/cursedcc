@@ -1,0 +1,7 @@
+[91;1merror[39m: `continue` can only be used within a loop[0m
+[94;1m --> [0mtestsuite/tests/chapter_8/invalid_semantics/continue_not_in_loop.c:4:9
+[94;1m  | 
+4 | [0m        continue;
+[94;1m  | [91;1m        ^^^^^^^^^ not in a loop
+[94;1m  | [0m
+

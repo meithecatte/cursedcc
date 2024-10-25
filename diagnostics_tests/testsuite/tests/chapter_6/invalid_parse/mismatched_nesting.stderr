@@ -1,0 +1,7 @@
+[91;1merror[39m: expected expression, got `else`[0m
+[94;1m --> [0mtestsuite/tests/chapter_6/invalid_parse/mismatched_nesting.c:7:5
+[94;1m  | 
+7 | [0m    else
+[94;1m  | [91;1m    ^^^^ expression expected
+[94;1m  | [0m
+

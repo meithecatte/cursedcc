@@ -1,0 +1,7 @@
+[91;1merror[39m: expected `while`, got `;`[0m
+[94;1m --> [0mtestsuite/tests/chapter_8/invalid_parse/do_extra_semicolon.c:4:6
+[94;1m  | 
+4 | [0m    }; while(1);
+[94;1m  | [91;1m     ^ `while` expected here
+[94;1m  | [0m
+

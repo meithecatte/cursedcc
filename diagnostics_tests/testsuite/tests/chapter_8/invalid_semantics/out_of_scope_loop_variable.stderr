@@ -1,0 +1,6 @@
+[91;1merror[39m: `i` undeclared[0m
+[94;1m --> [0mtestsuite/tests/chapter_8/invalid_semantics/out_of_scope_loop_variable.c:3:10
+[94;1m  | 
+3 | [0m    for (i = 0; i < 1; i = i + 1)
+[94;1m  | [91;1m         ^ `i` has not been declared
+[94;1m  | [0m

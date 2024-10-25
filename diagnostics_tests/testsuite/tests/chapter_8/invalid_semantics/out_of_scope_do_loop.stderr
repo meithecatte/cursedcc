@@ -1,0 +1,6 @@
+[91;1merror[39m: `a` undeclared[0m
+[94;1m --> [0mtestsuite/tests/chapter_8/invalid_semantics/out_of_scope_do_loop.c:8:14
+[94;1m  | 
+8 | [0m    } while (a < 100);
+[94;1m  | [91;1m             ^ `a` has not been declared
+[94;1m  | [0m
