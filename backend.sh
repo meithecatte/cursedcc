@@ -409,13 +409,9 @@ emit_function() {
     local -i stack_max=$stack_used
     stack_used=0
 
-    echo "$fname has $stack_max bytes of local variables"
-
     if (( stack_max % STACK_ALIGNMENT != 0 )); then
         stack_max+=$((16 - stack_max % STACK_ALIGNMENT))
     fi
-
-    echo "rounding up to $stack_max"
 
     clear_labels
     local -i function_pos label_counter=0
