@@ -637,7 +637,7 @@ emit_statement() {
             fi;;
         break)
             if [ -z "${innermost_break-}" ]; then
-                error "\`break\` can only be used within a loop or a switch"
+                error "\`break\` can only be used within a loop or switch statement"
                 show_node $1 "not in a loop or a switch"
                 end_diagnostic
             else
