@@ -809,7 +809,7 @@ parse_primary_expr() {
 # 6.5.2 Postfix operators
 parse_postfix_expr() {
     local begin=$pos
-    parse_primary_expr || return 1
+    parse_primary_expr
 
     while has_tokens; do
         local lhs=$res
