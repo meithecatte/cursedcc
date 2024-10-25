@@ -1,0 +1,7 @@
+[91;1merror[39m: invalid identifier[0m
+[94;1m --> [0mtestsuite/tests/chapter_1/invalid_lex/invalid_identifier.c:3:12
+[94;1m  | 
+3 | [0m    return 1foo;
+[94;1m  | [91;1m           ^^^^ identifier can't start with a digit
+[94;1m  | [0m
+

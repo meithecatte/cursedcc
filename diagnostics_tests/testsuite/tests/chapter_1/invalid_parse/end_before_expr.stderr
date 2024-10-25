@@ -1,0 +1,7 @@
+[91;1merror[39m: expected expression, got EOF[0m
+[94;1m --> [0mtestsuite/tests/chapter_1/invalid_parse/end_before_expr.c:2:11
+[94;1m  | 
+2 | [0m    return
+[94;1m  | [91;1m          ^ 
+[94;1m  | [0m
+

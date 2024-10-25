@@ -1,0 +1,7 @@
+[91;1merror[39m: stray '@' in program[0m
+[94;1m --> [0mtestsuite/tests/chapter_1/invalid_lex/at_sign.c:4:13
+[94;1m  | 
+4 | [0m    return 0@1;
+[94;1m  | [91;1m            ^ 
+[94;1m  | [0m
+

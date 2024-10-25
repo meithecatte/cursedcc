@@ -1,0 +1,13 @@
+[91;1merror[39m: expected `;`, got identifier[0m
+[94;1m --> [0mtestsuite/tests/chapter_1/invalid_parse/space_in_keyword.c:2:11
+[94;1m  | 
+2 | [0m    retur n 0;
+[94;1m  | [91;1m          ^ `;` expected here
+[94;1m  | [0m
+
+[91;1merror[39m: `retur` undeclared[0m
+[94;1m --> [0mtestsuite/tests/chapter_1/invalid_parse/space_in_keyword.c:2:5
+[94;1m  | 
+2 | [0m    retur n 0;
+[94;1m  | [91;1m    ^^^^^ `retur` has not been declared
+[94;1m  | [0m

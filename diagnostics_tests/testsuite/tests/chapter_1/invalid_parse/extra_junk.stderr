@@ -1,0 +1,7 @@
+[91;1merror[39m: expected type, found identifier[0m
+[94;1m --> [0mtestsuite/tests/chapter_1/invalid_parse/extra_junk.c:6:1
+[94;1m  | 
+6 | [0mfoo
+[94;1m  | [91;1m^^^ type expected
+[94;1m  | [0m
+

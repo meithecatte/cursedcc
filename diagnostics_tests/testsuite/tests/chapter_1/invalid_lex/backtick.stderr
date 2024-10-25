@@ -1,0 +1,7 @@
+[91;1merror[39m: stray '`' in program[0m
+[94;1m --> [0mtestsuite/tests/chapter_1/invalid_lex/backtick.c:2:1
+[94;1m  | 
+2 | [0m`
+[94;1m  | [91;1m^ 
+[94;1m  | [0m
+

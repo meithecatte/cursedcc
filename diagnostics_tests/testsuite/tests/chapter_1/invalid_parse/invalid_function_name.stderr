@@ -1,0 +1,7 @@
+[91;1merror[39m: expected identifier, got literal[0m
+[94;1m --> [0mtestsuite/tests/chapter_1/invalid_parse/invalid_function_name.c:2:5
+[94;1m  | 
+2 | [0mint 3 (void) {
+[94;1m  | [91;1m    ^ identifier expected here
+[94;1m  | [0m
+

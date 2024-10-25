@@ -1,0 +1,7 @@
+[91;1merror[39m: expected type, found `{`[0m
+[94;1m --> [0mtestsuite/tests/chapter_1/invalid_parse/unclosed_paren.c:1:11
+[94;1m  | 
+1 | [0mint main( {
+[94;1m  | [91;1m          ^ type expected
+[94;1m  | [0m
+

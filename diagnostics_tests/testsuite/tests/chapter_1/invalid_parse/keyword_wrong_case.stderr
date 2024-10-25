@@ -1,0 +1,13 @@
+[91;1merror[39m: expected `;`, got literal[0m
+[94;1m --> [0mtestsuite/tests/chapter_1/invalid_parse/keyword_wrong_case.c:2:12
+[94;1m  | 
+2 | [0m    RETURN 0;
+[94;1m  | [91;1m           ^ `;` expected here
+[94;1m  | [0m
+
+[91;1merror[39m: `RETURN` undeclared[0m
+[94;1m --> [0mtestsuite/tests/chapter_1/invalid_parse/keyword_wrong_case.c:2:5
+[94;1m  | 
+2 | [0m    RETURN 0;
+[94;1m  | [91;1m    ^^^^^^ `RETURN` has not been declared
+[94;1m  | [0m
