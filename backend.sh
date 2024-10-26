@@ -342,7 +342,7 @@ emit_prologue() {
 
         local name; unpack $var "var" name
         if (( i < num_abi_regs )); then
-            emit_declare_var $param
+            emit_declare_local $param
             emit_var_write $var ${abi_regs[i]}
         else
             scope_insert $name $param rbp $((8 * (i - 6) + 16))
@@ -476,8 +476,8 @@ emit_function() {
     sections[.text]+="$code"
 }
 
-# emit_declare_var declare_var
-emit_declare_var() {
+# emit_declare_local declare_var
+emit_declare_local() {
     local decl="$1"
     local ty name; unpack $decl "declare_var" ty name _
     local name; unpack $var "var" name
@@ -548,7 +548,7 @@ emit_statement() {
             for node in "${stmt[@]:1}"; do
                 local ty var init=''
                 unpack $node "declare_var" ty var init
-                emit_declare_var $node
+                emit_declare_local $node
                 if [ -n "$init" ]; then
                     local value
                     unpack $init "expr" value
