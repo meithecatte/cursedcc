@@ -55,6 +55,8 @@ dump_ast_as() {
 dump_ast() {
     local level="$(( level + 1 ))"
     for node in "$@"; do
+        if (( node < 0 )); then continue; fi
+
         printf "%*s %d: %s\n" $((2 * level)) "+" $node "${ast[node]}"
 
         local parts=(${ast[node]})

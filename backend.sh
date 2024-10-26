@@ -261,15 +261,14 @@ call_symbol() {
     p32 code 0
 }
 
-# accepts storage class in global variable $storage_class
 emit_global() {
     local decl=(${ast[$1]})
     case ${decl[0]} in
     declare)
         local node
         for node in ${decl[@]:1}; do
-            local ty var init=''
-            unpack $node "declare_var" ty var init
+            local stc ty var init=''
+            unpack $node "declare_var" stc ty var init
             local name
             unpack $var "var" name
             if try_unpack $ty "ty_fun" _ _; then
@@ -330,8 +329,8 @@ emit_prologue() {
     # in check_param_list. Avoid emitting a duplicate error.
     local suppress_scope_errors=1
     for param in "${params[@]:1}"; do
-        local ty var=''
-        unpack $param "declare_var" ty var
+        local stc ty var=''
+        unpack $param "declare_var" stc ty var
 
         if [ -z "$var" ]; then
             error "missing name for parameter"
@@ -432,7 +431,7 @@ emit_function() {
 
     # name -> declaring node (the ones that can be shadowed are not included)
     local -A vars_in_block=()
-    # name -> type
+    # name -> (node, storage); like file_scope - see types.sh
     local -A block_scope=()
     local in_function=1
     emit_prologue $params
@@ -479,7 +478,7 @@ emit_function() {
 # emit_declare_local declare_var
 emit_declare_local() {
     local decl="$1"
-    local ty name; unpack $decl "declare_var" ty name _
+    local stc ty name; unpack $decl "declare_var" stc ty name _
     local name; unpack $var "var" name
     local -i var_size=4
     local -i stack_offset=$stack_used
@@ -511,7 +510,7 @@ emit_var_write() {
     unpack $node "var" name
     local storage_type location
     resolve $node; local decl=$res
-    local ty var; unpack $decl "declare_var" ty var _
+    local stc ty var; unpack $decl "declare_var" stc ty var _
     if try_unpack $ty "ty_fun" _ _; then
         error "cannot assign to a function"
         show_node $node "\`$name\` refers to a function"
@@ -546,8 +545,8 @@ emit_statement() {
             local -i i
             local node
             for node in "${stmt[@]:1}"; do
-                local ty var init=''
-                unpack $node "declare_var" ty var init
+                local stc ty var init=''
+                unpack $node "declare_var" stc ty var init
                 emit_declare_local $node
                 if [ -n "$init" ]; then
                     local value
@@ -695,7 +694,7 @@ emit_expr() {
 
             local ty
             resolve $lhs; local fundecl=$res
-            unpack $fundecl "declare_var" ty _ _
+            unpack $fundecl "declare_var" _ ty _ _
 
             local ty_ret params
             if ! try_unpack $ty "ty_fun" ty_ret params; then

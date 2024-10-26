@@ -251,7 +251,7 @@ parse() {
 #     declarator = initializer
 parse_external_declaration() {
     local begin=$pos
-    local storage_class
+    local storage_class=-1
     parse_declaration_specifiers; local base_type=$res
     if peek semi; then
         useless_specifiers $base_type
@@ -273,7 +273,7 @@ parse_external_declaration() {
             return 1
         fi
 
-        mknode "declare_var $ty $var" $begin; local fundecl=$res
+        mknode "declare_var $storage_class $ty $var" $begin; local fundecl=$res
         scope_insert $name $fundecl sym $name
 
         parse_compound; local body=$res
@@ -287,7 +287,7 @@ parse_external_declaration() {
 
         # 6.9.1p4 The storage-class specifier, if any, in the declaration specifiers
         # [of a function definition] shall be either extern or static.
-        if [ -n "$storage_class" ]; then
+        if (( storage_class >= 0 )); then
             local stc_name="${ast[storage_class]#stc_}"
             case "$stc_name" in
             extern) ;; # extern doesn't do anything to functions
@@ -331,7 +331,7 @@ peek_declaration() {
 
 parse_declaration() {
     local begin=$pos
-    local storage_class
+    local storage_class=-1
     parse_declaration_specifiers; local base_type=$res
     if peek semi; then
         useless_specifiers $base_type
@@ -380,9 +380,9 @@ finish_init_declarator() {
     if peek assn; then
         expect assn
         parse_initializer; local value=$res
-        mknode "declare_var $ty $var $value" $begin
+        mknode "declare_var $storage_class $ty $var $value" $begin
     else
-        mknode "declare_var $ty $var" $begin
+        mknode "declare_var $storage_class $ty $var" $begin
     fi
 }
 
@@ -409,7 +409,7 @@ peek_declaration_specifiers() {
 # type as $res
 parse_declaration_specifiers() {
     local type_specifiers=()
-    storage_class=''
+    storage_class=-1
 
     parse_storage_class() {
         case "${toktype[pos]}" in
@@ -427,7 +427,7 @@ parse_declaration_specifiers() {
         # 6.7.1p2 "At most, one storage-class specifier may be given in
         # the declaration specifiers in a declaration, except that
         # _Thread_local may appear with static or extern.
-        if [ -n "$storage_class" ]; then
+        if (( storage_class >= 0 )); then
             error "more than one storage class specified"
             local previous="${ast[storage_class]}"
             show_node $storage_class "$previous first specified here"
@@ -528,24 +528,24 @@ parse_parens_parameter_type_list() {
 #     declaration-specifiers abstract-declarator?
 parse_parameter_declaration() {
     local begin=$pos
-    local storage_class
+    local storage_class=-1
     parse_declaration_specifiers; local base_type=$res
 
     # mvp grammar for the abstract-declarator? case
     # (we only handle the case where the abstract-declarator is absent)
     if peek rparen || peek comma; then
-        mknode "declare_var $base_type"
+        mknode "declare_var $storage_class $base_type"
     else
         parse_declarator; local declarator=$res
         local ty var
         unfuck_declarator $declarator $base_type
 
-        mknode "declare_var $ty $var" $begin
+        mknode "declare_var $storage_class $ty $var" $begin
     fi
 
     # 6.7.6.3p2 The only storage-class specifier that shall occur in a parameter
     # declaration is register.
-    if [ -n "$storage_class" ]; then
+    if (( storage_class >= 0 )); then
         local stc_name="${ast[storage_class]#stc_}"
         error "invalid storage class specifier for parameter"
         show_node $storage_class "parameter declared as \`$stc_name\`"
@@ -680,7 +680,7 @@ parse_statement() {
             local declvar
             for declvar in "${declvars[@]:1}"; do
                 local ty var name
-                unpack $declvar "declare_var" ty var _
+                unpack $declvar "declare_var" stc ty var _
                 unpack $var "var" name
                 # 6.8.5p3 The declaration part of a for statement shall only
                 # declare identifiers for objects having storage class

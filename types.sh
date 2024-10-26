@@ -62,8 +62,8 @@ scope_insert() {
 # check_redeclaration prev_node cur_node name
 check_redeclaration() {
     local ty1 ty2
-    unpack $1 "declare_var" ty1 _ _
-    unpack $2 "declare_var" ty2 _ _
+    unpack $1 "declare_var" _ ty1 _ _
+    unpack $2 "declare_var" _ ty2 _ _
     local name=$3
 
     local ret1 ret2 params1 params2
@@ -99,7 +99,7 @@ check_param_list() {
     local param
     for param in "$@"; do
         local ty var=''
-        unpack $param "declare_var" ty var
+        unpack $param "declare_var" stc ty var
 
         if try_unpack $ty "ty_void"; then
             if [ -n "$var" ]; then

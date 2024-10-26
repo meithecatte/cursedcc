@@ -45,7 +45,7 @@ The corresponding AST looks like this:
 ```
 $ DEBUG_AST=1 ./cc.sh testsuite/tests/chapter_4/valid/compare_arithmetic_results.c
 declaration of function main:
- + 7: declare_var 6 1
+ + 7: declare_var -1 6 1
    + 6: ty_fun 0 4
      + 0: ty_int
      + 4: params
@@ -69,7 +69,7 @@ body of function main:
 Large parts of the AST are self-explanatory. Therefore, this section does not
 aim to be exhaustive, instead seeking to clarify the semantics of the AST nodes
 
-### `declare` and `declare_var`
+### `declare`
 
 Apart from statements, a `compound` node can contain declarations.
 To properly handle declarations declaring multiple variables at once, the parser
@@ -87,14 +87,45 @@ int main(void) {
 body of function main:
  + 16: compound 15
    + 15: declare 10 14
-     + 10: declare_var 8 9
+     + 10: declare_var -1 8 9
        + 8: ty_int
        + 9: var a
-     + 14: declare_var 8 11 13
+     + 14: declare_var -1 8 11 13
        + 8: ty_int
        + 11: var b
        + 13: expr 12
          + 12: literal 42
+```
+
+### `declare_var`
+
+A `declare_var` node can have 3 or 4 parameters:
+- storage class (or `-1` if none specified)
+- type
+- variable name
+- initializer (if present)
+
+For example:
+
+```c
+static int x = 42;
+int y;
+```
+
+```
+global declaration:
+ + 6: declare 5
+   + 5: declare_var 0 1 2 4
+     + 0: stc_static
+     + 1: ty_int
+     + 2: var x
+     + 4: expr 3
+       + 3: literal 42
+global declaration:
+ + 10: declare 9
+   + 9: declare_var -1 7 8
+     + 7: ty_int
+     + 8: var y
 ```
 
 ### `for` loops
