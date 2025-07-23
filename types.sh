@@ -2,60 +2,159 @@
 #  - relevant declare_var
 #  - storage type ("rbp", "sym")
 #  - offset or symbol name
+#  - linkage (external, internal, no-linkage)
 declare -A file_scope=()
 declare in_function=0
 
-# resolve var
-# output in res, storage_type, location
-resolve() {
-    local var=(${ast[$1]})
-    local name="${var[1]}"
+declare -A symbol_decl=()
+declare -A symbol_linkage=()
+
+# try_resolve var
+# output in res, storage_type, location, linkage
+try_resolve() {
+    local name; unpack $1 "var" name
     if (( in_function )) && [[ -n "${block_scope["$name"]-}" ]]; then
         set -- ${block_scope["$name"]}
     elif [[ -n "${file_scope["$name"]-}" ]]; then
         set -- ${file_scope["$name"]}
     else
-        error "\`$name\` undeclared"
-        show_node $1 "\`$name\` has not been declared"
         return 1
     fi
 
     res=$1
     storage_type=$2
     location=$3
+    linkage=$4
+}
+
+# resolve var
+# output in res, storage_type, location, linkage
+resolve() {
+    if ! try_resolve $1; then
+        local name; unpack $1 "var" name
+        error "\`$name\` undeclared"
+        show_node $1 "\`$name\` has not been declared"
+        return 1
+    fi
+}
+
+# choose_linkage node
+choose_linkage() {
+    local stc ty var
+    unpack $1 "declare_var" stc ty var _
+
+    # NOTE: we now have both is_function and in_function in scope. Watch out.
+    local is_function=0
+    if try_unpack $ty "ty_fun" _ _; then
+        is_function=1
+    fi
+
+    if (( !in_function )) && try_unpack $stc "stc_static"; then
+        # 6.2.2p3 If the declaration of a file scope identifier for an object
+        # or a function contains the storage class specifier `static`,
+        # the identifier has internal linkage.
+        res=internal
+    elif try_unpack $stc "stc_extern" || (( stc < 0 && is_function )); then
+        # 6.2.2p5 If the declaration of an identifier for a function has
+        # no storage-class specifier, its linkage is determined exactly as if
+        # it were declared with the storage-class specifier `extern`.
+        #
+        # 6.2.2p4 For an identifier declared with the storage-class specifier
+        # `extern` in a scope in which a prior declaration of that identifier
+        # is visible...
+        local storage_type location linkage
+        if try_resolve $var; then
+            # ...if the prior declaration specifies internal or external linkage,
+            # the linkage of the identifier at the later declaration is the same
+            # as the linkage specified at the prior declaration.
+            if [[ $linkage = internal ]] || [[ $linkage = external ]]; then
+                res=$linkage
+                return
+            fi
+        fi
+        # ... If no prior declaration is visible, or if the prior declaration
+        # specifies no linkage, then the declarator has external linkage.
+        res=external
+    elif (( !in_function && stc < 0 )); then
+        # 6.2.2p5 ... If the declaration of an object has file scope and no
+        # storage-class specifier, its linkage is external.
+        res=external
+    else
+        # 6.2.2p6 The following identifiers have no linkage:
+        # - an identifier declared to be anything other than
+        #   an object or a function;
+        # - an identifier declared to be a function parameter;
+        # - a block scope identifier for an object declared without
+        #   the storage-class specifier extern.
+        #
+        # Note that:
+        # - only objects and functions go through this function
+        # - in_function is already set during emit_prologue, and so parameters
+        #   are treated as local variables
+        # - moreover, the parser rejects parameters with invalid storage classes,
+        #   so parameters will definitely enter this branch.
+        res=no-linkage
+    fi
 }
 
 # scope_insert name node storage_type location
 scope_insert() {
     local name="$1" node="$2" storage_type="$3" location="$4"
+    choose_linkage $node; local linkage=$res
+
+    local previous=""
+
     if (( in_function )); then
-        # TODO: merge declarations if allowed
-        if [ -n "${vars_in_block[$name]-}" ] && \
-            ! check_redeclaration "${block_scope[$name]%% *}" "$node" "$name" && \
-            (( ! ${suppress_scope_errors:-0} ))
-        then
+        if [ -n "${vars_in_block[$name]-}" ]; then
+            previous="${block_scope[$name]%% *}"
+        fi
+    else
+        if [ -n "${file_scope[$name]-}" ]; then
+            previous="${file_scope[$name]%% *}"
+        fi
+    fi
+
+    if [ -n "$previous" ] &&
+        ! check_redeclaration "$previous" "$node" "$name"
+    then
+        if (( ! ${suppress_scope_errors:-0} )); then
             error "redefinition of \`$name\`"
             show_node ${vars_in_block[$name]} "\`$name\` first defined here"
             show_node $node "\`$name\` redefined here"
             end_diagnostic
-            return 1
         fi
 
-        vars_in_block[$name]=$node
-        block_scope[$name]="$node $storage_type $location"
-    else
-        if [ -n "${file_scope[$name]-}" ] && \
-            ! check_redeclaration "${file_scope[$name]%% *}" "$node" "$name" && \
-            (( ! ${suppress_scope_errors:-0} ))
-        then
-            error "redefinition of \`$name\`"
-            show_node ${file_scope[$name]%% *} "\`$name\` first defined here"
-            show_node $node "\`$name\` redefined here"
+        return 1
+    fi
+
+    if [[ $linkage != no-linkage ]]; then
+        if [[ $storage_type = rbp ]]; then
+            internal_error "unexpected linkage $linkage for storage type rbp"
+            show_node $node
             end_diagnostic
-            return 1
+            exit 1
         fi
 
-        file_scope[$name]="$node $storage_type $location"
+        if [[ $location != $name ]]; then
+            internal_error "expected location '$location' and name '$name' to coincide for storage type $storage_type"
+            show_node $node
+            end_diagnostic
+            exit 1
+        fi
+
+        if [[ -n "${symbol_linkage[$name]-}" ]]; then
+            fail "TODO redeclarations" # && "${symbol_linkage[$name]}
+        else
+            symbol_decl[$name]=$node
+            symbol_linkage[$name]=$linkage
+        fi
+    fi
+
+    if (( in_function )); then
+        vars_in_block[$name]=$node
+        block_scope[$name]="$node $storage_type $location $linkage"
+    else
+        file_scope[$name]="$node $storage_type $location $linkage"
     fi
 }
 

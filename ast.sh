@@ -12,6 +12,10 @@ mknode() {
 # try_unpack node expected_type params...
 try_unpack() {
     local _node=$1 _expected=$2 _part
+    if [[ "$_node" == -1 ]]; then
+        return 1
+    fi
+
     if ! [[ "$_node" =~ ^[0-9]*$ && -n "${ast[_node]-}" ]]; then
         internal_error "invalid index $_node for try_unpack"
         exit 1

@@ -478,7 +478,7 @@ emit_function() {
 # emit_declare_local declare_var
 emit_declare_local() {
     local decl="$1"
-    local stc ty name; unpack $decl "declare_var" stc ty name _
+    local stc ty var; unpack $decl "declare_var" stc ty var _
     local name; unpack $var "var" name
     local -i var_size=4
     local -i stack_offset=$stack_used
@@ -547,7 +547,15 @@ emit_statement() {
             for node in "${stmt[@]:1}"; do
                 local stc ty var init=''
                 unpack $node "declare_var" stc ty var init
-                emit_declare_local $node
+
+                if try_unpack $stc "stc_extern" || try_unpack $ty "ty_fun" _ _; then
+                    fail "TODO: extern/fun local decl"
+                elif (( stc >= 0 )); then
+                    fail "TODO: local variable with ${ast[stc]}"
+                else
+                    emit_declare_local $node
+                fi
+
                 if [ -n "$init" ]; then
                     local value
                     unpack $init "expr" value
