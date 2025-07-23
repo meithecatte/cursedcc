@@ -38,9 +38,9 @@ Currently, the compiler implements only a subset of the C language.
 - Functions
   - [x] function declarations
   - [x] calls to external functions
-  - [ ] `static` functions
+  - [x] `static` functions
 - File-scope variables
   - [x] Global variables
-  - [ ] `static` variables
+  - [x] `static` variables
   - [ ] `extern` variables
 - [ ] Local `static` variables

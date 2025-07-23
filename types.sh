@@ -147,6 +147,11 @@ scope_insert() {
         else
             symbol_decl[$name]=$node
             symbol_linkage[$name]=$linkage
+            if [[ $linkage = internal ]]; then
+                symbol_info[$name]=$((STB_LOCAL << 4 | STT_NOTYPE))
+            else
+                symbol_info[$name]=$((STB_GLOBAL << 4 | STT_NOTYPE))
+            fi
         fi
     fi
 

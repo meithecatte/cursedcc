@@ -29,6 +29,11 @@ SHF_WRITE=1
 SHF_ALLOC=2
 SHF_EXECINSTR=4
 
+STB_LOCAL=0
+STB_GLOBAL=1
+
+STT_NOTYPE=0
+
 R_X86_64_PC32=2
 R_X86_64_PLT32=4
 
@@ -55,9 +60,14 @@ declare -A section_attrs
 # Maps the section name to its sh_info
 declare -A section_info
 
-# Maps the names of defined symbols to their positions
+# Maps the names of defined symbols to their positions. If a symbol is not
+# declared, but is referenced from the relocations array, it'll be emitted
+# as imported, in which case the section and offset will be set to "" and 0
+# respectively.
 declare -A symbol_sections
 declare -A symbol_offsets
+# Maps the names of defined symbols to the value of st_info they should have
+declare -iA symbol_info
 
 # List of all relocations that should be included in the output file.
 # Each entry is a string with the following fields separated by spaces:
@@ -97,6 +107,7 @@ collect_imports() {
         if [ -z "${symbol_sections[$symbol]-}" ]; then
             symbol_sections[$symbol]=
             symbol_offsets[$symbol]=0
+            symbol_info[$symbol]=$((STB_GLOBAL << 4 | STT_NOTYPE))
         fi
 
         # Make sure the relocation section exists so that it gets
@@ -123,31 +134,42 @@ build_symtab() {
     done
 
     local -i symbol_count=1
-    local symbol
-    for symbol in "${!symbol_sections[@]}"; do
-        local section="${symbol_sections[$symbol]}"
-        local offset="${symbol_offsets[$symbol]}"
-        if [ -z "$section" ]; then
-            # imported symbol
-            local shndx=$SHN_UNDEF
-        else
-            local shndx=${section_index[$section]}
-        fi
+    local symbol num_locals
+    for do_local in 1 0; do
+        for symbol in "${!symbol_sections[@]}"; do
+            local section="${symbol_sections[$symbol]}"
+            local offset="${symbol_offsets[$symbol]}"
+            local info="${symbol_info[$symbol]}"
+            if (( (info >> 4) == STB_LOCAL && !do_local )) ||
+               (( (info >> 4) != STB_LOCAL && do_local )); then
+                continue
+            fi
 
-        p32 symtab "${strtab_positions[$symbol]}" # st_name
-        symtab+="\x10" # st_info: STB_GLOBAL, STT_NOTYPE
-        symtab+="\x00" # st_other: reserved, 0
-        p16 symtab "$shndx" # st_shndx
-        p64 symtab "$offset" # st_value
-        p64 symtab 0 # st_size
-        symtab_index[$symbol]=$symbol_count
-        symbol_count+=1
+            if [ -z "$section" ]; then
+                # imported symbol
+                local shndx=$SHN_UNDEF
+            else
+                local shndx=${section_index[$section]}
+            fi
+
+            p32 symtab "${strtab_positions[$symbol]}" # st_name
+            p8 symtab "${symbol_info[$symbol]}" # st_info
+            symtab+="\x00" # st_other: reserved, 0
+            p16 symtab "$shndx" # st_shndx
+            p64 symtab "$offset" # st_value
+            p64 symtab 0 # st_size
+            symtab_index[$symbol]=$symbol_count
+            symbol_count+=1
+        done
+
+        if (( do_local )); then
+            num_locals=$symbol_count
+        fi
     done
 
     sections[.symtab]="$symtab"
     section_types[.symtab]="$SHT_SYMTAB"
-    # We don't emit any local symbols apart from the NULL at the very start
-    section_info[.symtab]=1
+    section_info[.symtab]=$num_locals
 }
 
 build_relocs() {

@@ -291,8 +291,7 @@ parse_external_declaration() {
             local stc_name="${ast[storage_class]#stc_}"
             case "$stc_name" in
             extern) ;; # extern doesn't do anything to functions
-            static)
-                fail "TODO: static functions";;
+            static) ;; # linkage handled by scope_insert above
             *)
                 error "the \`$stc_name\` storage class is not valid for functions"
                 show_node $storage_class "\`$name\` declared \`$stc_name\`"
