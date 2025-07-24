@@ -56,7 +56,7 @@ ask_approve() {
 
 check_testcase() {
     local goldfile="$GOLDDIR/${1%.c}.stderr"
-    if ./cc.sh -c $1 -o /dev/null 2>"$outfile"; then
+    if ./cc.sh -c -o /dev/null $1 2>"$outfile"; then
         echo "Test failed: $1 (exit code 0)" >&2
         fail
     elif [[ -f "$goldfile" ]]; then
