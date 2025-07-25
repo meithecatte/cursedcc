@@ -14,6 +14,7 @@ SELFDIR="$(dirname -- "${BASH_SOURCE[0]}")"
 . "$SELFDIR/eval.sh"
 . "$SELFDIR/jumps.sh"
 . "$SELFDIR/types.sh"
+. "$SELFDIR/asm_x64.sh"
 . "$SELFDIR/backend.sh"
 
 declare objonly=0 preprocessed=0
