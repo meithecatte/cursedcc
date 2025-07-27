@@ -8,46 +8,37 @@ emit_global() {
             unpack $node "declare_var" stc ty var init
             local name
             unpack $var "var" name
-            if try_unpack $ty "ty_fun" _ _; then
-                # 6.7.9p3 The type of the entity to be initialized shall be an
-                # array of unknown size or a complete object type that is not a
-                # variable length array type.
-                #
-                # [in particular, a function type is not an object type]
-                if [[ -n "$init" ]]; then
-                    error "function declaration includes an initializer"
-                    show_node $node "\`$name\` initialized like a variable"
-                    end_diagnostic
-                fi
-
-                scope_insert $name $node sym $name
-            else
-                scope_insert $name $node sym $name
-
-                if [[ -n "$init" ]]; then
-                    local expr
-                    unpack $init "expr" expr
-                    eval_expr $expr; local val=$res
-
-                    local offset
-                    binlength offset "${sections[.data]}"
-                    p32 sections[.data] $val
-                    symbol_sections["$name"]=.data
-                    symbol_offsets["$name"]=$offset
-                else
-                    local var_size=4
-                    local offset=${sections[.bss]}
-                    (( sections[.bss] += var_size ))
-                    symbol_sections["$name"]=.bss
-                    symbol_offsets["$name"]=$offset
-                fi
-            fi
+            scope_insert $name $node sym $name
         done;;
     nothing) ;;
     *)
         internal_error "finish_declaration returned ${decl[0]}"
         end_diagnostic;;
     esac
+}
+
+emit_data_var() {
+    local ty="$1" name="$2" init="$3"
+
+    local expr
+    unpack $init "expr" expr
+    eval_expr $expr; local val=$res
+
+    local offset
+    binlength offset "${sections[.data]}"
+    p32 sections[.data] $val
+    symbol_sections["$name"]=.data
+    symbol_offsets["$name"]=$offset
+}
+
+emit_bss_var() {
+    local ty="$1" name="$2"
+
+    local var_size=4
+    local offset=${sections[.bss]}
+    (( sections[.bss] += var_size ))
+    symbol_sections["$name"]=.bss
+    symbol_offsets["$name"]=$offset
 }
 
 # AST traversal starts here

@@ -98,8 +98,12 @@ choose_linkage() {
 }
 
 # scope_insert name node storage_type location
+#
+# Handle $node, a declaration of $name
 scope_insert() {
-    local name="$1" node="$2" storage_type="$3" location="$4"
+    local name="$1" node="$2" storage_type="$3" location="$4" stc ty var init=''
+    unpack $node "declare_var" stc ty var init
+
     choose_linkage $node; local linkage=$res
 
     local previous=""
@@ -119,7 +123,7 @@ scope_insert() {
     then
         if (( ! ${suppress_scope_errors:-0} )); then
             error "redefinition of \`$name\`"
-            show_node ${vars_in_block[$name]} "\`$name\` first defined here"
+            show_node $previous "\`$name\` first defined here"
             show_node $node "\`$name\` redefined here"
             end_diagnostic
         fi
@@ -128,8 +132,8 @@ scope_insert() {
     fi
 
     if [[ $linkage != no-linkage ]]; then
-        if [[ $storage_type = rbp ]]; then
-            internal_error "unexpected linkage $linkage for storage type rbp"
+        if [[ $storage_type != sym ]]; then
+            internal_error "unexpected linkage $linkage for storage type $storage_type"
             show_node $node
             end_diagnostic
             exit 1
@@ -142,15 +146,42 @@ scope_insert() {
             exit 1
         fi
 
-        if [[ -n "${symbol_linkage[$name]-}" ]]; then
-            fail "TODO redeclarations" # && "${symbol_linkage[$name]}
-        else
+        local prev_linkage="${symbol_linkage[$name]-}"
+
+        if [[ -z "$prev_linkage" ]]; then
             symbol_decl[$name]=$node
             symbol_linkage[$name]=$linkage
             if [[ $linkage = internal ]]; then
                 symbol_info[$name]=$((STB_LOCAL << 4 | STT_NOTYPE))
             else
                 symbol_info[$name]=$((STB_GLOBAL << 4 | STT_NOTYPE))
+            fi
+        elif [[ $prev_linkage != $linkage ]]; then
+            # 6.2.2p7 If, within a translation unit, the same identifier appears
+            # with both internal and external linkage, the behavior is undefined.
+            error "conflicting linkage for \`$name\`"
+            show_node $previous "\`$name\` first defined with $prev_linkage linkage"
+            show_node $node "\`$name\` redefined with $linkage linkage"
+        fi
+
+        if try_unpack $ty "ty_fun" _ _; then
+            # 6.7.9p3 The type of the entity to be initialized shall be an
+            # array of unknown size or a complete object type that is not a
+            # variable length array type.
+            #
+            # [in particular, a function type is not an object type]
+            if [[ -n "$init" ]]; then
+                error "function declaration includes an initializer"
+                show_node $node "\`$name\` initialized like a variable"
+                end_diagnostic
+            fi
+        else
+            if [[ -z "${symbol_offsets["$name"]-}" ]]; then
+                if [[ -n "$init" ]]; then
+                    emit_data_var $ty $name $init
+                else
+                    emit_bss_var $ty $name
+                fi
             fi
         fi
     fi
