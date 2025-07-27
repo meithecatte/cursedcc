@@ -125,9 +125,9 @@ build_symtab() {
     # for now.
     local symtab=""
 
-    # Of *course* the first symbol table entry needs to be null, what did you
-    # expect?
-
+    # Random special case to keep you on your toes: the first entry in the
+    # symbol table must be null, to allow using a symbol index of 0 as a special
+    # sentinel value.
     local i
     for (( i=0; i < 24; i++ )); do
         symtab+="\x00"
@@ -135,11 +135,17 @@ build_symtab() {
 
     local -i symbol_count=1
     local symbol num_locals
+
+    # All local symbols must preceed any non-local ones. To achieve this,
+    # iterate the symbol list twice.
     for do_local in 1 0; do
         for symbol in "${!symbol_sections[@]}"; do
             local section="${symbol_sections[$symbol]}"
             local offset="${symbol_offsets[$symbol]}"
             local info="${symbol_info[$symbol]}"
+
+            # Is this the right kind of symbol for the current iteration of the
+            # outer loop?
             if (( (info >> 4) == STB_LOCAL && !do_local )) ||
                (( (info >> 4) != STB_LOCAL && do_local )); then
                 continue
