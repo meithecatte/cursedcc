@@ -1,4 +1,4 @@
 [submodule "testsuite"]
 	path = testsuite
 	url = https://github.com/nlsandler/writing-a-c-compiler-tests
-	branch = complete-test-suite
+	branch = main
